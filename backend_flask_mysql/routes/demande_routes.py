@@ -45,12 +45,27 @@ def allowed_file(filename):
 
     return "." in filename and filename.rsplit(".", 1)[1].lower() in allowed_extensions
 
+
 def make_upload_url(relative_path):
+    """
+    Transforme:
+      ordonnances/xxx.jpg
+    en:
+      https://dwak-hna-mobile.onrender.com/uploads/ordonnances/xxx.jpg
+
+    Render doit avoir:
+      APP_URL=https://dwak-hna-mobile.onrender.com
+    """
     base_url = os.getenv("APP_URL", request.host_url.rstrip("/")).rstrip("/")
     relative_path = str(relative_path).lstrip("/")
     return f"{base_url}/uploads/{relative_path}"
 
+
 def get_ordonnance_file():
+    """
+    Accepte plusieurs noms possibles envoyés par Flutter.
+    Caméra ou galerie = même logique côté backend: fichier multipart.
+    """
     possible_keys = [
         "ordonnance",
         "ordonnance_image",
@@ -67,7 +82,12 @@ def get_ordonnance_file():
 
     return None
 
+
 def save_ordonnance_file(file):
+    """
+    Sauvegarde l'image/PDF dans uploads/ordonnances
+    et retourne une URL complète HTTPS.
+    """
     if file is None:
         return None
 
@@ -95,6 +115,11 @@ def save_ordonnance_file(file):
 
 
 def get_ordonnance_form_data():
+    """
+    Supporte:
+    - multipart/form-data avec photo caméra/galerie
+    - JSON avec ordonnance_url/image_url si Flutter envoie déjà une URL
+    """
     if request.content_type and request.content_type.startswith("multipart/form-data"):
         medicaments_raw = request.form.get("medicaments", "[]")
 
@@ -109,6 +134,7 @@ def get_ordonnance_form_data():
             "rayon_km": request.form.get("rayon_km", 5),
             "latitude": request.form.get("latitude"),
             "longitude": request.form.get("longitude"),
+            "ordonnance_url": request.form.get("ordonnance_url") or request.form.get("image_url"),
         }
 
     data = request.get_json(silent=True) or {}
@@ -119,10 +145,19 @@ def get_ordonnance_form_data():
         "rayon_km": data.get("rayon_km", 5),
         "latitude": data.get("latitude"),
         "longitude": data.get("longitude"),
+        "ordonnance_url": data.get("ordonnance_url") or data.get("image_url"),
     }
 
 
 def insert_ordonnance_image(cursor, demande_id, image_path):
+    """
+    Insère l'ordonnance dans la table demande_ordonnances.
+
+    Priorité:
+      demande_ordonnances(demande_id, url)
+
+    Puis fallback dynamique si ta BDD a un autre nom de colonne/table.
+    """
     if not image_path:
         return False
 
@@ -137,20 +172,26 @@ def insert_ordonnance_image(cursor, demande_id, image_path):
 
         if "demande_id" in column_names:
             if "url" in column_names:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO demande_ordonnances (demande_id, url)
                     VALUES (%s, %s)
-                """, (demande_id, image_path))
+                    """,
+                    (demande_id, image_path)
+                )
                 return True
 
             if "image_url" in column_names:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO demande_ordonnances (demande_id, image_url)
                     VALUES (%s, %s)
-                """, (demande_id, image_path))
+                    """,
+                    (demande_id, image_path)
+                )
                 return True
 
-    # Fallback : garde ton système dynamique pour d'autres noms de tables
+    # Fallback dynamique pour toute table contenant "ordon"
     cursor.execute("SHOW TABLES LIKE %s", ("%ordon%",))
     tables = cursor.fetchall()
 
@@ -171,7 +212,11 @@ def insert_ordonnance_image(cursor, demande_id, image_path):
 
         cursor.execute(f"SHOW COLUMNS FROM `{safe_table_name}`")
         columns = cursor.fetchall()
-        column_names = [column["Field"] for column in columns]
+
+        column_names = [
+            column["Field"]
+            for column in columns
+        ]
 
         if "demande_id" not in column_names:
             continue
@@ -212,7 +257,7 @@ def insert_ordonnance_image(cursor, demande_id, image_path):
 
 def normalize_ordonnance_images(rows):
     normalized = []
-    base_url = request.host_url.rstrip("/")
+    base_url = os.getenv("APP_URL", request.host_url.rstrip("/")).rstrip("/")
 
     for row in rows:
         item = clean_row(row)
@@ -239,7 +284,7 @@ def normalize_ordonnance_images(rows):
                     elif text.startswith("/"):
                         image_url = f"{base_url}{text}"
                     else:
-                        image_url = f"{base_url}/uploads/{text}"
+                        image_url = make_upload_url(text)
 
                     break
 
@@ -343,7 +388,7 @@ def get_patient_demandes():
     try:
         cursor.execute(
             """
-            SELECT 
+            SELECT
                 d.demande_id,
                 d.type,
                 d.message_patient,
@@ -355,7 +400,7 @@ def get_patient_demandes():
                 d.cree_le,
                 p.nom AS pharmacie_choisie
             FROM demandes d
-            LEFT JOIN pharmacies p 
+            LEFT JOIN pharmacies p
                 ON p.pharmacie_id = d.pharmacie_choisie_id
             WHERE d.patient_id = %s
             ORDER BY d.cree_le DESC
@@ -391,7 +436,7 @@ def get_demande_detail(demande_id):
     try:
         cursor.execute(
             """
-            SELECT 
+            SELECT
                 d.demande_id,
                 d.patient_id,
                 d.type,
@@ -471,10 +516,10 @@ def get_demande_detail(demande_id):
                 ph.est_ouverte,
                 ph.est_de_garde,
 
-                CASE 
-                    WHEN d.latitude IS NOT NULL 
-                    AND d.longitude IS NOT NULL 
-                    AND ph.latitude IS NOT NULL 
+                CASE
+                    WHEN d.latitude IS NOT NULL
+                    AND d.longitude IS NOT NULL
+                    AND ph.latitude IS NOT NULL
                     AND ph.longitude IS NOT NULL
                     THEN ROUND(
                         6371 * ACOS(
@@ -501,7 +546,7 @@ def get_demande_detail(demande_id):
             JOIN demandes d
                 ON d.demande_id = dp.demande_id
             WHERE dp.demande_id = %s
-            ORDER BY 
+            ORDER BY
                 CASE dp.statut
                     WHEN 'choisie' THEN 1
                     WHEN 'acceptee' THEN 2
@@ -627,6 +672,7 @@ def create_demande_ordonnance():
     rayon_km = form_data.get("rayon_km", 5)
     latitude = form_data.get("latitude")
     longitude = form_data.get("longitude")
+    ordonnance_url = form_data.get("ordonnance_url")
 
     try:
         rayon_km = int(float(rayon_km))
@@ -634,6 +680,11 @@ def create_demande_ordonnance():
         rayon_km = 5
 
     file = get_ordonnance_file()
+
+    print("ORDONNANCE FILE RECEIVED:", file.filename if file else "NO FILE")
+    print("REQUEST CONTENT TYPE:", request.content_type)
+    print("REQUEST FILE KEYS:", list(request.files.keys()))
+    print("REQUEST FORM KEYS:", list(request.form.keys()))
 
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
@@ -645,6 +696,8 @@ def create_demande_ordonnance():
 
         if file is not None:
             saved_image_path = save_ordonnance_file(file)
+
+        image_to_insert = saved_image_path or ordonnance_url
 
         cursor.execute(
             """
@@ -663,11 +716,11 @@ def create_demande_ordonnance():
 
         demande_id = cursor.lastrowid
 
-        if saved_image_path is not None:
+        if image_to_insert:
             insert_ordonnance_image(
                 cursor=cursor,
                 demande_id=demande_id,
-                image_path=saved_image_path,
+                image_path=image_to_insert,
             )
 
         for med in medicaments:
@@ -699,7 +752,7 @@ def create_demande_ordonnance():
             "success": True,
             "message": "Demande ordonnance créée avec succès",
             "demande_id": demande_id,
-            "image_url": saved_image_path,
+            "image_url": image_to_insert,
         }), 201
 
     except ValueError as e:
