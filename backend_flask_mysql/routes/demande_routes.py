@@ -45,6 +45,10 @@ def allowed_file(filename):
 
     return "." in filename and filename.rsplit(".", 1)[1].lower() in allowed_extensions
 
+def make_upload_url(relative_path):
+    base_url = os.getenv("APP_URL", request.host_url.rstrip("/")).rstrip("/")
+    relative_path = str(relative_path).lstrip("/")
+    return f"{base_url}/uploads/{relative_path}"
 
 def get_ordonnance_file():
     possible_keys = [
@@ -62,7 +66,6 @@ def get_ordonnance_file():
             return file
 
     return None
-
 
 def save_ordonnance_file(file):
     if file is None:
@@ -85,7 +88,10 @@ def save_ordonnance_file(file):
     save_path = os.path.join(ordonnance_folder, filename)
     file.save(save_path)
 
-    return f"ordonnances/{filename}"
+    relative_path = f"ordonnances/{filename}"
+    public_url = make_upload_url(relative_path)
+
+    return public_url
 
 
 def get_ordonnance_form_data():
@@ -120,6 +126,31 @@ def insert_ordonnance_image(cursor, demande_id, image_path):
     if not image_path:
         return False
 
+    # Priorité à la table correcte
+    cursor.execute("SHOW TABLES LIKE 'demande_ordonnances'")
+    table_exists = cursor.fetchone()
+
+    if table_exists:
+        cursor.execute("SHOW COLUMNS FROM demande_ordonnances")
+        columns = cursor.fetchall()
+        column_names = [column["Field"] for column in columns]
+
+        if "demande_id" in column_names:
+            if "url" in column_names:
+                cursor.execute("""
+                    INSERT INTO demande_ordonnances (demande_id, url)
+                    VALUES (%s, %s)
+                """, (demande_id, image_path))
+                return True
+
+            if "image_url" in column_names:
+                cursor.execute("""
+                    INSERT INTO demande_ordonnances (demande_id, image_url)
+                    VALUES (%s, %s)
+                """, (demande_id, image_path))
+                return True
+
+    # Fallback : garde ton système dynamique pour d'autres noms de tables
     cursor.execute("SHOW TABLES LIKE %s", ("%ordon%",))
     tables = cursor.fetchall()
 
@@ -140,11 +171,7 @@ def insert_ordonnance_image(cursor, demande_id, image_path):
 
         cursor.execute(f"SHOW COLUMNS FROM `{safe_table_name}`")
         columns = cursor.fetchall()
-
-        column_names = [
-            column["Field"]
-            for column in columns
-        ]
+        column_names = [column["Field"] for column in columns]
 
         if "demande_id" not in column_names:
             continue
