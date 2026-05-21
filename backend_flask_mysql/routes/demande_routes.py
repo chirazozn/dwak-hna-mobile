@@ -67,7 +67,7 @@ def get_ordonnance_file():
     Caméra ou galerie = même logique côté backend: fichier multipart.
     """
     possible_keys = [
-        "ordonnance",
+        "ordonnances",
         "ordonnance_image",
         "image",
         "file",
