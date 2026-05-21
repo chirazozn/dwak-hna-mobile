@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "798412625556",
+    "project_id": "dwak-hna",
+    "storage_bucket": "dwak-hna.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:798412625556:android:41c7528d9f04efc8878681",
+        "android_client_info": {
+          "package_name": "com.dwakhna.dwak_hna_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDfMyTlanTMCtHznn_63wQqdhorfenTWPs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

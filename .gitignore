@@ -1,0 +1,26 @@
+# Python backend
+backend_flask_mysql/venv/
+backend_flask_mysql/__pycache__/
+backend_flask_mysql/**/*.pyc
+backend_flask_mysql/.env
+backend_flask_mysql/uploads/
+backend_flask_mysql/config/firebase-service-account.json
+# Flutter
+dwak_hna_app/.dart_tool/
+dwak_hna_app/build/
+dwak_hna_app/.flutter-plugins
+dwak_hna_app/.flutter-plugins-dependencies
+dwak_hna_app/.packages
+dwak_hna_app/pubspec.lock
+
+# Android generated
+dwak_hna_app/android/.gradle/
+dwak_hna_app/android/local.properties
+dwak_hna_app/android/app/build/
+
+# IDE/system
+.vscode/
+.idea/
+*.log
+.DS_Store
+Thumbs.db

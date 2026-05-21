@@ -1,0 +1,35 @@
+name: dwak_hna_app
+description: Application mobile patient Dwak Hna - Flutter/Dart.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  google_maps_flutter: ^2.9.0
+  image_picker: ^1.1.2
+  carousel_slider: ^5.0.0
+  intl: ^0.19.0
+  http: ^1.2.2
+  shared_preferences: ^2.3.2
+  flutter_local_notifications: ^17.2.3
+  firebase_core: ^3.6.0
+  firebase_messaging: ^15.1.3
+  url_launcher: ^6.3.1
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  geolocator: ^13.0.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
