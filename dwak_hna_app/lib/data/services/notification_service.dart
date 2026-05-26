@@ -120,7 +120,20 @@ class NotificationService {
 
     throw Exception(body['message'] ?? 'Erreur chargement notifications');
   }
+Future<int> getUnreadCount() async {
+  final response = await http.get(
+    Uri.parse('$baseUrl/api/notifications/patient/count'),
+    headers: await _headers(),
+  );
 
+  final body = jsonDecode(response.body);
+
+  if (response.statusCode == 200 && body['success'] == true) {
+    return int.tryParse(body['unread_count'].toString()) ?? 0;
+  }
+
+  throw Exception(body['message'] ?? 'Erreur compteur notifications');
+}
   Future<void> markAsRead(AppNotif notif) async {
     final endpoint = notif.source == 'admin'
         ? '$baseUrl/api/notifications/admin/${notif.id}/lu'

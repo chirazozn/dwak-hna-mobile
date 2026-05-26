@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:carousel_slider/carousel_slider.dart';
@@ -5,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
-
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/status_chip.dart';
 import '../../data/services/location_service.dart';
@@ -16,7 +16,7 @@ import '../pharmacies/pharmacies_page.dart';
 import '../prescriptions/prescription_scan_page.dart';
 import '../products/products_page.dart';
 import '../requests/requests_page.dart';
-
+import '../../data/services/notification_service.dart';
 class HomePage extends StatefulWidget {
   final void Function(int index)? onSelectTab;
 
@@ -34,7 +34,10 @@ class _HomePageState extends State<HomePage> {
   static const String logoAssetPath = 'assets/images/logo.png';
 
   final PharmacieService pharmacieService = PharmacieService();
+final NotificationService notificationService = NotificationService();
 
+Timer? notificationTimer;
+int unreadNotificationCount = 0;
   bool isLoading = true;
   String? pharmacyError;
 
@@ -44,12 +47,22 @@ class _HomePageState extends State<HomePage> {
   String patientNom = '';
   String patientPrenom = '';
 
-  @override
-  void initState() {
-    super.initState();
-    loadHomeData();
-  }
+@override
+void initState() {
+  super.initState();
+  loadHomeData();
+  loadUnreadNotificationCount();
 
+  notificationTimer = Timer.periodic(
+    const Duration(seconds: 15),
+    (_) => loadUnreadNotificationCount(),
+  );
+}
+@override
+void dispose() {
+  notificationTimer?.cancel();
+  super.dispose();
+}
   Future<Map<String, String>> headers() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -232,14 +245,28 @@ class _HomePageState extends State<HomePage> {
       openPage(fallbackPage);
     }
   }
+Future<void> loadUnreadNotificationCount() async {
+  try {
+    final count = await notificationService.getUnreadCount();
 
-  void openNotificationsHistory() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const NotificationsPage(),
-      ),
-    );
+    if (!mounted) return;
+
+    setState(() {
+      unreadNotificationCount = count;
+    });
+  } catch (e) {
+    debugPrint('LOAD NOTIF COUNT ERROR: $e');
   }
+}
+ Future<void> openNotificationsHistory() async {
+   await Navigator.of(context).push(
+     MaterialPageRoute(
+       builder: (_) => const NotificationsPage(),
+     ),
+   );
+
+   await loadUnreadNotificationCount();
+ }
 
   String resolveImageUrl(dynamic value) {
     final imageUrl = value?.toString().trim() ?? '';
@@ -276,7 +303,10 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: RefreshIndicator(
-        onRefresh: loadHomeData,
+onRefresh: () async {
+  await loadHomeData();
+  await loadUnreadNotificationCount();
+},
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
           children: [
@@ -331,6 +361,9 @@ class _HomePageState extends State<HomePage> {
                     ],
                   ),
                 ),
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
                 IconButton.filled(
                   onPressed: openNotificationsHistory,
                   style: IconButton.styleFrom(
@@ -340,6 +373,43 @@ class _HomePageState extends State<HomePage> {
                   ),
                   icon: const Icon(Icons.notifications_none_rounded),
                 ),
+
+                if (unreadNotificationCount > 0)
+                  Positioned(
+                    right: -2,
+                    top: -2,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 1.5,
+                        ),
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 18,
+                        minHeight: 18,
+                      ),
+                      child: Text(
+                        unreadNotificationCount > 99
+                            ? '99+'
+                            : unreadNotificationCount.toString(),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
               ],
             ),
 
