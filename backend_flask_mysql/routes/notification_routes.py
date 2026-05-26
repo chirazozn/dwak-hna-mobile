@@ -1,10 +1,19 @@
 from decimal import Decimal
 from datetime import datetime
-from config.firebase_push import send_push_to_patient
+
 from flask import Blueprint, jsonify, request
 
 from config.db import get_db_connection
 from middleware.auth_middleware import auth_patient
+
+try:
+    from config.firebase_push import send_push_to_patient
+except Exception as e:
+    print("FIREBASE PUSH DISABLED:", e)
+
+    def send_push_to_patient(patient_id, title, body, data=None):
+        return False
+
 
 notification_bp = Blueprint("notification", __name__)
 
@@ -31,6 +40,46 @@ def clean_row(row):
 
 def clean_rows(rows):
     return [clean_row(row) for row in rows]
+
+
+def get_patient_unread_count(cursor, patient_id):
+    cursor.execute(
+        """
+        SELECT COALESCE(SUM(total), 0) AS unread_count
+        FROM (
+            SELECT COUNT(*) AS total
+            FROM notifications_admin na
+            WHERE na.est_lue = 0
+            AND (
+                na.type = 'tous'
+                OR (na.type = 'patient' AND na.patient_id = %s)
+            )
+
+            UNION ALL
+
+            SELECT COUNT(*) AS total
+            FROM notifications_systeme ns
+            WHERE ns.est_lue = 0
+            AND ns.patient_id = %s
+            AND ns.type_notif IN (
+                'demande_acceptee',
+                'demande_refusee',
+                'demande_annulee'
+            )
+        ) counts
+        """,
+        (
+            patient_id,
+            patient_id,
+        )
+    )
+
+    row = cursor.fetchone()
+
+    if not row:
+        return 0
+
+    return int(row.get("unread_count") or 0)
 
 
 @notification_bp.get("/patient")
@@ -101,44 +150,12 @@ def get_patient_notifications():
         )
 
         rows = cursor.fetchall()
-
-        cursor.execute(
-            """
-            SELECT COALESCE(SUM(total), 0) AS unread_count
-            FROM (
-                SELECT COUNT(*) AS total
-                FROM notifications_admin na
-                WHERE na.est_lue = 0
-                AND (
-                    na.type = 'tous'
-                    OR (na.type = 'patient' AND na.patient_id = %s)
-                )
-
-                UNION ALL
-
-                SELECT COUNT(*) AS total
-                FROM notifications_systeme ns
-                WHERE ns.est_lue = 0
-                AND ns.patient_id = %s
-                AND ns.type_notif IN (
-                    'demande_acceptee',
-                    'demande_refusee',
-                    'demande_annulee'
-                )
-            ) counts
-            """,
-            (
-                patient_id,
-                patient_id,
-            )
-        )
-
-        count_row = cursor.fetchone()
+        unread_count = get_patient_unread_count(cursor, patient_id)
 
         return jsonify({
             "success": True,
             "data": clean_rows(rows),
-            "unread_count": count_row["unread_count"] if count_row else 0,
+            "unread_count": unread_count,
         })
 
     except Exception as e:
@@ -222,14 +239,44 @@ def get_patient_unread_notifications():
         )
 
         rows = cursor.fetchall()
+        unread_count = get_patient_unread_count(cursor, patient_id)
 
         return jsonify({
             "success": True,
-            "data": clean_rows(rows)
+            "data": clean_rows(rows),
+            "unread_count": unread_count,
         })
 
     except Exception as e:
         print("GET UNREAD NOTIFICATIONS ERROR:", e)
+        return jsonify({
+            "success": False,
+            "message": "Erreur serveur"
+        }), 500
+
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@notification_bp.get("/patient/count")
+@auth_patient
+def get_patient_notification_count():
+    patient_id = request.patient["patient_id"]
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        unread_count = get_patient_unread_count(cursor, patient_id)
+
+        return jsonify({
+            "success": True,
+            "unread_count": unread_count,
+        })
+
+    except Exception as e:
+        print("GET NOTIF COUNT ERROR:", e)
         return jsonify({
             "success": False,
             "message": "Erreur serveur"
@@ -378,6 +425,8 @@ def mark_all_notifications_read():
     finally:
         cursor.close()
         conn.close()
+
+
 @notification_bp.post("/firebase-token")
 @auth_patient
 def save_firebase_token():
