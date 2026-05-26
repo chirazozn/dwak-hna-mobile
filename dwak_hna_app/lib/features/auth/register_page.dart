@@ -15,7 +15,7 @@ class RegisterPage extends StatefulWidget {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
-  static const String baseUrl = 'http://10.0.2.2:5001';
+  static const String baseUrl = 'https://dwak-hna-mobile.onrender.com';
 
   final TextEditingController nomController = TextEditingController();
   final TextEditingController prenomController = TextEditingController();

@@ -17,7 +17,7 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  static const String baseUrl = 'http://10.0.2.2:5001';
+  static const String baseUrl = 'https://dwak-hna-mobile.onrender.com';
 
   final ImagePicker imagePicker = ImagePicker();
 

@@ -30,7 +30,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  static const String apiBaseUrl = 'http://10.0.2.2:5001';
+  static const String apiBaseUrl = 'https://dwak-hna-mobile.onrender.com';
   static const String logoAssetPath = 'assets/images/logo.png';
 
   final PharmacieService pharmacieService = PharmacieService();

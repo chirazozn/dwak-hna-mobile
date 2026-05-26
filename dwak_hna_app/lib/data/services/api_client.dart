@@ -7,7 +7,7 @@ class ApiClient {
   ApiClient({
     String? baseUrl,
     this.token,
-  }) : baseUrl = baseUrl ?? 'http://10.0.2.2:5001/api';
+  }) : baseUrl = baseUrl ?? 'https://dwak-hna-mobile.onrender.com/api';
 
   final String baseUrl;
   final String? token;

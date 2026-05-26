@@ -45,7 +45,7 @@ class AppNotif {
 }
 
 class NotificationService {
-  static const String baseUrl = 'http://10.0.2.2:5001';
+  static const String baseUrl = 'https://dwak-hna-mobile.onrender.com';
 
   Future<Map<String, String>> _headers() async {
     final prefs = await SharedPreferences.getInstance();
