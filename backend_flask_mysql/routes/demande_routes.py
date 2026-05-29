@@ -545,16 +545,17 @@ def get_demande_detail(demande_id):
                 ON ph.pharmacie_id = dp.pharmacie_id
             JOIN demandes d
                 ON d.demande_id = dp.demande_id
-            WHERE dp.demande_id = %s
-            ORDER BY
-                CASE dp.statut
-                    WHEN 'choisie' THEN 1
-                    WHEN 'acceptee' THEN 2
-                    WHEN 'en_attente' THEN 3
-                    WHEN 'refusee' THEN 4
-                    ELSE 5
-                END,
-                dp.demande_pharmacie_id ASC
+                      WHERE dp.demande_id = %s
+                      AND dp.statut IN ('acceptee', 'refusee', 'choisie')
+                      ORDER BY
+                          CASE dp.statut
+                              WHEN 'choisie' THEN 1
+                              WHEN 'acceptee' THEN 2
+                              WHEN 'refusee' THEN 3
+                              ELSE 4
+                          END,
+                          dp.demande_pharmacie_id ASC
+
             """,
             (demande_id,)
         )
