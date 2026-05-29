@@ -494,6 +494,31 @@ def get_demande_detail(demande_id):
 
         medicaments = cursor.fetchall()
 
+        # Stats de toutes les pharmacies liées à la demande
+        # Même les pharmacies en attente ne seront pas affichées dans la liste,
+        # mais elles seront comptées ici pour afficher le message d'attente.
+        cursor.execute(
+            """
+            SELECT
+                COUNT(*) AS total,
+                COALESCE(SUM(CASE WHEN statut = 'en_attente' THEN 1 ELSE 0 END), 0) AS en_attente,
+                COALESCE(SUM(CASE WHEN statut = 'acceptee' THEN 1 ELSE 0 END), 0) AS acceptee,
+                COALESCE(SUM(CASE WHEN statut = 'refusee' THEN 1 ELSE 0 END), 0) AS refusee,
+                COALESCE(SUM(CASE WHEN statut = 'choisie' THEN 1 ELSE 0 END), 0) AS choisie
+            FROM demande_pharmacies
+            WHERE demande_id = %s
+            """,
+            (demande_id,)
+        )
+
+        pharmacie_stats = cursor.fetchone() or {
+            "total": 0,
+            "en_attente": 0,
+            "acceptee": 0,
+            "refusee": 0,
+            "choisie": 0,
+        }
+
         cursor.execute(
             """
             SELECT
@@ -545,17 +570,16 @@ def get_demande_detail(demande_id):
                 ON ph.pharmacie_id = dp.pharmacie_id
             JOIN demandes d
                 ON d.demande_id = dp.demande_id
-                      WHERE dp.demande_id = %s
-                      AND dp.statut IN ('acceptee', 'refusee', 'choisie')
-                      ORDER BY
-                          CASE dp.statut
-                              WHEN 'choisie' THEN 1
-                              WHEN 'acceptee' THEN 2
-                              WHEN 'refusee' THEN 3
-                              ELSE 4
-                          END,
-                          dp.demande_pharmacie_id ASC
-
+            WHERE dp.demande_id = %s
+            AND dp.statut IN ('acceptee', 'refusee', 'choisie')
+            ORDER BY
+                CASE dp.statut
+                    WHEN 'choisie' THEN 1
+                    WHEN 'acceptee' THEN 2
+                    WHEN 'refusee' THEN 3
+                    ELSE 4
+                END,
+                dp.demande_pharmacie_id ASC
             """,
             (demande_id,)
         )
@@ -569,6 +593,7 @@ def get_demande_detail(demande_id):
                 "demande": clean_row(demande),
                 "medicaments": clean_rows(medicaments),
                 "pharmacies": clean_rows(pharmacies),
+                "pharmacie_stats": clean_row(pharmacie_stats),
                 "ordonnances": ordonnances
             }
         })
@@ -583,8 +608,6 @@ def get_demande_detail(demande_id):
     finally:
         cursor.close()
         conn.close()
-
-
 @demande_bp.post("/manuelle")
 @auth_patient
 def create_demande_manuelle():
