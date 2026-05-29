@@ -49,6 +49,16 @@ class _DemandeDetailsPageState extends State<DemandeDetailsPage> {
     return data?['pharmacies'] ?? [];
   }
 
+  Map<String, dynamic> get pharmacieStats {
+    final current = data?['pharmacie_stats'];
+
+    if (current is Map) {
+      return Map<String, dynamic>.from(current);
+    }
+
+    return {};
+  }
+
   List<dynamic> get ordonnances {
     return data?['ordonnances'] ?? [];
   }
@@ -114,6 +124,29 @@ class _DemandeDetailsPageState extends State<DemandeDetailsPage> {
 
   bool boolValue(dynamic value) {
     return value == 1 || value == true || value == '1' || value == 'true';
+  }
+
+  String waitingPharmaciesMessage() {
+    final total = intValue(pharmacieStats['total']);
+    final pending = intValue(pharmacieStats['en_attente']);
+
+    if (total <= 0 || pending <= 0) {
+      return '';
+    }
+
+    if (pending == total) {
+      if (pending == 1) {
+        return '1 pharmacie a reçu votre demande. Veuillez attendre sa réponse.';
+      }
+
+      return '$pending pharmacies ont reçu votre demande. Veuillez attendre leurs réponses.';
+    }
+
+    if (pending == 1) {
+      return "1 pharmacie n'a pas encore répondu. Veuillez patienter...";
+    }
+
+    return "$pending pharmacies n'ont pas encore répondu. Veuillez patienter...";
   }
 
   bool isPharmacyOpen(dynamic pharmacie) {
@@ -188,6 +221,21 @@ class _DemandeDetailsPageState extends State<DemandeDetailsPage> {
         return 'Choisie';
       default:
         return statut;
+    }
+  }
+
+  Color responseStatusColor(String statut) {
+    switch (statut) {
+      case 'acceptee':
+        return AppColors.primaryGreen;
+      case 'refusee':
+        return Colors.red;
+      case 'choisie':
+        return Colors.blue;
+      case 'en_attente':
+        return Colors.orange;
+      default:
+        return AppColors.textGrey;
     }
   }
 
@@ -416,7 +464,6 @@ class _DemandeDetailsPageState extends State<DemandeDetailsPage> {
           options: const [
             _FilterOption(value: 'all', label: 'Tous les statuts'),
             _FilterOption(value: 'acceptee', label: 'Acceptées'),
-            _FilterOption(value: 'en_attente', label: 'En attente'),
             _FilterOption(value: 'refusee', label: 'Refusées'),
             _FilterOption(value: 'choisie', label: 'Choisie'),
           ],
@@ -796,6 +843,40 @@ class _DemandeDetailsPageState extends State<DemandeDetailsPage> {
                               ],
                             ),
                             const SizedBox(height: 10),
+                            if (waitingPharmaciesMessage().isNotEmpty) ...[
+                              _WhiteCard(
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      width: 38,
+                                      height: 38,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.lightGreen,
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
+                                      child: const Icon(
+                                        Icons.hourglass_top_rounded,
+                                        color: AppColors.primaryGreen,
+                                        size: 22,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        waitingPharmaciesMessage(),
+                                        style: const TextStyle(
+                                          color: AppColors.textGrey,
+                                          fontWeight: FontWeight.w800,
+                                          height: 1.4,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                            ],
                             Wrap(
                               spacing: 10,
                               runSpacing: 10,
@@ -835,10 +916,12 @@ class _DemandeDetailsPageState extends State<DemandeDetailsPage> {
                             ),
                             const SizedBox(height: 14),
                             if (filteredPharmacies.isEmpty)
-                              const _WhiteCard(
+                              _WhiteCard(
                                 child: Text(
-                                  'Aucune pharmacie ne correspond aux filtres.',
-                                  style: TextStyle(
+                                  waitingPharmaciesMessage().isNotEmpty
+                                      ? 'Les pharmacies en attente ne sont pas affichées. Les réponses acceptées ou refusées apparaîtront ici.'
+                                      : 'Aucune pharmacie ne correspond aux filtres.',
+                                  style: const TextStyle(
                                     color: AppColors.textGrey,
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -852,6 +935,7 @@ class _DemandeDetailsPageState extends State<DemandeDetailsPage> {
                                 doubleValue: doubleValue,
                                 priceValue: priceValue,
                                 statusLabel: pharmacieStatusLabel,
+                                responseStatusColor: responseStatusColor,
                                 disponibiliteLabel: disponibiliteLabel,
                               )
                             else
@@ -865,6 +949,7 @@ class _DemandeDetailsPageState extends State<DemandeDetailsPage> {
                                   return _PharmacyCard(
                                     pharmacie: pharmacie,
                                     statusLabel: pharmacieStatusLabel,
+                                    responseStatusColor: responseStatusColor,
                                     disponibiliteLabel: disponibiliteLabel,
                                     priceValue: priceValue,
                                     distanceValue: distanceValue,
@@ -994,6 +1079,7 @@ class _StepBar extends StatelessWidget {
 class _PharmacyCard extends StatelessWidget {
   final dynamic pharmacie;
   final String Function(String statut) statusLabel;
+  final Color Function(String statut) responseStatusColor;
   final String Function(dynamic value) disponibiliteLabel;
   final String Function(dynamic value) priceValue;
   final String Function(dynamic value) distanceValue;
@@ -1007,6 +1093,7 @@ class _PharmacyCard extends StatelessWidget {
   const _PharmacyCard({
     required this.pharmacie,
     required this.statusLabel,
+    required this.responseStatusColor,
     required this.disponibiliteLabel,
     required this.priceValue,
     required this.distanceValue,
@@ -1058,6 +1145,7 @@ class _PharmacyCard extends StatelessWidget {
     final phone = textValue(pharmacie['pharmacie_telephone'], '');
     final color = statusColor(pharmacie);
     final icon = statusIcon(pharmacie);
+    final responseColor = responseStatusColor(statut);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -1091,7 +1179,7 @@ class _PharmacyCard extends StatelessWidget {
                 ),
                 _SmallStatusChip(
                   label: statusLabel(statut),
-                  color: AppColors.primaryGreen,
+                  color: responseColor,
                 ),
               ],
             ),
@@ -1219,6 +1307,7 @@ class _DemandePharmaciesMapSection extends StatelessWidget {
   final double? Function(dynamic value) doubleValue;
   final String Function(dynamic value) priceValue;
   final String Function(String statut) statusLabel;
+  final Color Function(String statut) responseStatusColor;
   final String Function(dynamic value) disponibiliteLabel;
 
   const _DemandePharmaciesMapSection({
@@ -1228,6 +1317,7 @@ class _DemandePharmaciesMapSection extends StatelessWidget {
     required this.doubleValue,
     required this.priceValue,
     required this.statusLabel,
+    required this.responseStatusColor,
     required this.disponibiliteLabel,
   });
 
@@ -1308,6 +1398,7 @@ class _DemandePharmaciesMapSection extends StatelessWidget {
     final distance = distanceText(pharmacie);
     final color = getMarkerColor(pharmacie);
     final icon = getMarkerIcon(pharmacie);
+    final responseColor = responseStatusColor(statut);
 
     showModalBottomSheet(
       context: context,
@@ -1382,8 +1473,8 @@ class _DemandePharmaciesMapSection extends StatelessWidget {
                         ),
                         Text(
                           statusLabel(statut),
-                          style: const TextStyle(
-                            color: AppColors.primaryGreen,
+                          style: TextStyle(
+                            color: responseColor,
                             fontWeight: FontWeight.w900,
                           ),
                         ),
