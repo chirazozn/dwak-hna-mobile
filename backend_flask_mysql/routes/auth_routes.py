@@ -3,7 +3,7 @@ from email.message import EmailMessage
 import os
 import random
 import smtplib
-
+import ssl
 import jwt
 from dotenv import load_dotenv
 from flask import Blueprint, request, jsonify
@@ -44,58 +44,67 @@ def create_patient_token(patient):
 def generate_email_code():
     return str(random.SystemRandom().randint(100000, 999999))
 
+def send_code_email(to_email, code, purpose):
+    mail_username = os.getenv("MAIL_USERNAME", "").strip()
+    mail_password = os.getenv("MAIL_PASSWORD", "").replace(" ", "").strip()
+    mail_from_name = os.getenv("MAIL_FROM_NAME", "Dwak Hna").strip()
 
-def send_code_email(email, code, purpose):
-    if not MAIL_USERNAME or not MAIL_PASSWORD:
-        raise RuntimeError("Configuration email manquante")
+    if not mail_username or not mail_password:
+        raise Exception("Configuration email manquante")
 
-    if purpose == "register":
-        subject = "Code de confirmation Dwak Hna"
-        title = "Confirmation de votre compte"
-        intro = "Utilisez ce code pour confirmer votre inscription Dwak Hna."
-    elif purpose == "forgot_password":
-        subject = "Code de réinitialisation Dwak Hna"
-        title = "Réinitialisation du mot de passe"
-        intro = "Utilisez ce code pour réinitialiser votre mot de passe Dwak Hna."
-    else:
-        subject = "Code de sécurité Dwak Hna"
-        title = "Modification du mot de passe"
-        intro = "Utilisez ce code pour modifier votre mot de passe Dwak Hna."
+    subject_by_purpose = {
+        "register": "Code de confirmation Dwak Hna",
+        "forgot_password": "Code de réinitialisation du mot de passe",
+        "change_password": "Code de modification du mot de passe",
+    }
+
+    title_by_purpose = {
+        "register": "Confirmation de votre compte",
+        "forgot_password": "Réinitialisation du mot de passe",
+        "change_password": "Modification du mot de passe",
+    }
+
+    subject = subject_by_purpose.get(purpose, "Code Dwak Hna")
+    title = title_by_purpose.get(purpose, "Code de confirmation")
 
     message = EmailMessage()
     message["Subject"] = subject
-    message["From"] = f"{MAIL_FROM_NAME} <{MAIL_USERNAME}>"
-    message["To"] = email
+    message["From"] = f"{mail_from_name} <{mail_username}>"
+    message["To"] = to_email
 
-    plain_body = (
-        f"{title}\n\n"
-        f"{intro}\n\n"
-        f"Votre code est : {code}\n\n"
-        f"Ce code expire dans {CODE_EXPIRES_MINUTES} minutes.\n"
-        f"Si vous n'avez pas demandé ce code, ignorez cet email.\n"
+    message.set_content(
+        f"""
+Bonjour,
+
+{title}
+
+Votre code de confirmation est :
+
+{code}
+
+Ce code est valable pendant 10 minutes.
+
+Si vous n'avez pas demandé ce code, ignorez cet email.
+
+Dwak Hna
+"""
     )
 
-    html_body = f"""
-    <div style="font-family:Arial,sans-serif;background:#f7f9f8;padding:24px">
-      <div style="max-width:520px;margin:auto;background:white;border-radius:18px;padding:24px">
-        <h2 style="color:#35A853;margin-top:0">{title}</h2>
-        <p>{intro}</p>
-        <div style="font-size:32px;font-weight:900;letter-spacing:6px;color:#111;background:#eef8f1;padding:16px;border-radius:14px;text-align:center">
-          {code}
-        </div>
-        <p style="color:#666">Ce code expire dans {CODE_EXPIRES_MINUTES} minutes.</p>
-        <p style="color:#999;font-size:13px">Si vous n'avez pas demandé ce code, ignorez cet email.</p>
-      </div>
-    </div>
-    """
+    try:
+        context = ssl.create_default_context()
 
-    message.set_content(plain_body)
-    message.add_alternative(html_body, subtype="html")
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as smtp:
+            smtp.ehlo()
+            smtp.starttls(context=context)
+            smtp.ehlo()
+            smtp.login(mail_username, mail_password)
+            smtp.send_message(message)
 
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
-        smtp.login(MAIL_USERNAME, MAIL_PASSWORD)
-        smtp.send_message(message)
+        print("EMAIL CODE SENT TO:", to_email)
 
+    except Exception as e:
+        print("SEND EMAIL ERROR:", repr(e))
+        raise Exception("Impossible d'envoyer le code par email")
 
 def invalidate_old_codes(cursor, email, purpose):
     cursor.execute(
