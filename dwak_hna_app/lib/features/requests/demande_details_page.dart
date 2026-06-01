@@ -23,7 +23,12 @@ class _DemandeDetailsPageState extends State<DemandeDetailsPage> {
 
   bool isLoading = true;
   bool isChoosing = false;
+  bool isFinishing = false;
   bool showMap = false;
+
+  int selectedRating = 5;
+  final TextEditingController finishCommentController =
+      TextEditingController();
 
   String? error;
   Map<String, dynamic>? data;
@@ -69,6 +74,12 @@ class _DemandeDetailsPageState extends State<DemandeDetailsPage> {
     loadDetails();
   }
 
+  @override
+  void dispose() {
+    finishCommentController.dispose();
+    super.dispose();
+  }
+
   Future<void> loadDetails() async {
     try {
       setState(() {
@@ -110,9 +121,14 @@ class _DemandeDetailsPageState extends State<DemandeDetailsPage> {
 
   int intValue(dynamic value) {
     if (value == null) return 0;
-    if (value is int) return value;
 
-    return int.tryParse(value.toString()) ?? 0;
+    if (value is num) {
+      return value.toInt();
+    }
+
+    return int.tryParse(value.toString()) ??
+        double.tryParse(value.toString())?.toInt() ??
+        0;
   }
 
   double? doubleValue(dynamic value) {
@@ -715,6 +731,202 @@ class _DemandeDetailsPageState extends State<DemandeDetailsPage> {
     );
   }
 
+
+  Future<void> terminerDemande() async {
+    final currentDemande = demande;
+
+    if (currentDemande == null) return;
+
+    final demandeId = intValue(currentDemande['demande_id']);
+
+    if (demandeId == 0) return;
+
+    try {
+      setState(() {
+        isFinishing = true;
+      });
+
+      await demandeService.terminerDemande(
+        demandeId: demandeId,
+        notePharmacie: selectedRating,
+        commentaire: finishCommentController.text.trim(),
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Demande terminée avec succès'),
+        ),
+      );
+
+      await loadDetails();
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isFinishing = false;
+        });
+      }
+    }
+  }
+
+  Future<void> showFinishDemandeSheet() async {
+    selectedRating = 5;
+    finishCommentController.clear();
+
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(18, 14, 18, 22),
+                decoration: const BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(28),
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 44,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    const Text(
+                      'Terminer la demande',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Confirmez que vous avez récupéré vos médicaments, puis laissez une note et un commentaire.',
+                      style: TextStyle(
+                        color: AppColors.textGrey,
+                        fontWeight: FontWeight.w600,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    const Text(
+                      'Note sur 5',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: List.generate(5, (index) {
+                        final value = index + 1;
+                        final active = value <= selectedRating;
+
+                        return IconButton(
+                          onPressed: () {
+                            setModalState(() {
+                              selectedRating = value;
+                            });
+                          },
+                          icon: Icon(
+                            active
+                                ? Icons.star_rounded
+                                : Icons.star_border_rounded,
+                            color: active ? Colors.orange : Colors.grey,
+                            size: 34,
+                          ),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: finishCommentController,
+                      maxLines: 4,
+                      decoration: InputDecoration(
+                        labelText: 'Commentaire',
+                        hintText: 'Votre avis sur la pharmacie...',
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(18),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: isFinishing
+                            ? null
+                            : () async {
+                                await terminerDemande();
+
+                                if (context.mounted) {
+                                  Navigator.of(context).pop();
+                                }
+                              },
+                        icon: isFinishing
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.check_circle_outline),
+                        label: Text(
+                          isFinishing
+                              ? 'Validation...'
+                              : 'Confirmer la récupération',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryGreen,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentDemande = demande;
@@ -797,6 +1009,34 @@ class _DemandeDetailsPageState extends State<DemandeDetailsPage> {
                                 ),
                               ),
                             ),
+                            if (currentDemande['etat'] == 'pharmacie_choisie') ...[
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: isFinishing
+                                      ? null
+                                      : showFinishDemandeSheet,
+                                  icon: const Icon(Icons.task_alt_rounded),
+                                  label: const Text(
+                                    'J’ai récupéré mes médicaments',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primaryGreen,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 15,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(18),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 18),
                             Row(
                               children: [

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app_shell.dart';
 import '../../data/services/auth_service.dart';
+import 'forgot_password_page.dart';
 import 'register_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -222,11 +223,9 @@ class _LoginPageState extends State<LoginPage> {
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Mot de passe oublié à connecter plus tard',
-                        ),
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const ForgotPasswordPage(),
                       ),
                     );
                   },

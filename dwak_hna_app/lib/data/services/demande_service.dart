@@ -151,4 +151,27 @@ class DemandeService {
 
     throw Exception(body['message'] ?? 'Erreur annulation demande');
   }
+  Future<void> terminerDemande({
+     required int demandeId,
+     required int notePharmacie,
+     required String commentaire,
+   }) async {
+     final response = await http.post(
+       Uri.parse('$baseUrl/api/demandes/$demandeId/terminer'),
+       headers: await _headers(),
+       body: jsonEncode({
+         'note_pharmacie': notePharmacie,
+         'commentaire': commentaire,
+       }),
+     );
+
+     final body = jsonDecode(response.body);
+
+     if (response.statusCode == 200 && body['success'] == true) {
+       return;
+     }
+
+     throw Exception(body['message'] ?? 'Erreur terminaison demande');
+   }
+
 }

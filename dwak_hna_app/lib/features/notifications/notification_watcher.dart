@@ -33,7 +33,7 @@ class _NotificationWatcherState extends State<NotificationWatcher> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       checkNotifications();
       timer = Timer.periodic(
-        const Duration(seconds: 15),
+        const Duration(seconds: 2),
         (_) => checkNotifications(),
       );
     });

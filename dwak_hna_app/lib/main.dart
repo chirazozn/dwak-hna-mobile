@@ -4,6 +4,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'app_shell.dart';
 import 'core/theme/app_theme.dart';
+import 'data/services/auth_service.dart';
 import 'features/auth/login_page.dart';
 
 @pragma('vm:entry-point')
@@ -34,9 +35,52 @@ class DwakHnaApp extends StatelessWidget {
       title: 'Dwak Hna',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      home: const LoginPage(),
+      home: const AuthGate(),
       routes: {
         AppShell.routeName: (_) => const AppShell(),
+      },
+    );
+  }
+}
+
+class AuthGate extends StatefulWidget {
+  const AuthGate({super.key});
+
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  final AuthService authService = AuthService();
+
+  late Future<bool> authFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    authFuture = authService.isLoggedIn();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<bool>(
+      future: authFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
+        final isLoggedIn = snapshot.data == true;
+
+        if (isLoggedIn) {
+          return const AppShell();
+        }
+
+        return const LoginPage();
       },
     );
   }

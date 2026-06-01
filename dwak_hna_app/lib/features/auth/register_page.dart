@@ -1,11 +1,8 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/app_colors.dart';
-import '../../app_shell.dart';
+import '../../data/services/auth_service.dart';
+import 'verify_register_code_page.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -15,7 +12,7 @@ class RegisterPage extends StatefulWidget {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
-  static const String baseUrl = 'https://dwak-hna-mobile.onrender.com';
+  final AuthService authService = AuthService();
 
   final TextEditingController nomController = TextEditingController();
   final TextEditingController prenomController = TextEditingController();
@@ -47,7 +44,7 @@ class _RegisterPageState extends State<RegisterPage> {
   Future<void> register() async {
     final nom = nomController.text.trim();
     final prenom = prenomController.text.trim();
-    final email = emailController.text.trim();
+    final email = emailController.text.trim().toLowerCase();
     final telephone = telephoneController.text.trim();
     final password = passwordController.text;
 
@@ -76,42 +73,21 @@ class _RegisterPageState extends State<RegisterPage> {
         isLoading = true;
       });
 
-      final response = await http.post(
-        Uri.parse('$baseUrl/api/auth/register'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'nom': nom,
-          'prenom': prenom,
-          'email': email,
-          'telephone': telephone,
-          'mot_de_passe': password,
-        }),
-      );
+      await authService.sendRegisterCode(email: email);
 
-      final body = jsonDecode(response.body);
+      if (!mounted) return;
 
-      if ((response.statusCode == 200 || response.statusCode == 201) &&
-          body['success'] == true) {
-        final prefs = await SharedPreferences.getInstance();
-
-        await prefs.setString('token', body['token']);
-        await prefs.setString('patient', jsonEncode(body['patient']));
-
-        if (!mounted) return;
-
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => const AppShell(),
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => VerifyRegisterCodePage(
+            nom: nom,
+            prenom: prenom,
+            email: email,
+            telephone: telephone,
+            password: password,
           ),
-          (route) => false,
-        );
-
-        return;
-      }
-
-      throw Exception(body['message'] ?? 'Erreur inscription');
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
 
@@ -261,7 +237,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         ),
                       )
                     : const Text(
-                        'Créer mon compte',
+                        'Envoyer le code',
                         style: TextStyle(
                           fontWeight: FontWeight.w900,
                           fontSize: 16,

@@ -7,7 +7,6 @@ import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_colors.dart';
-import '../../core/widgets/status_chip.dart';
 import '../../data/services/location_service.dart';
 import '../../data/services/pharmacie_service.dart';
 import 'pharmacy_products_page.dart';
@@ -120,7 +119,7 @@ class _PharmaciesPageState extends State<PharmaciesPage> {
     if (lastRequestTime != null) {
       final seconds = now.difference(lastRequestTime!).inSeconds;
 
-      if (seconds < 30) {
+      if (seconds < 2) {
         return false;
       }
     }
@@ -224,6 +223,34 @@ class _PharmaciesPageState extends State<PharmaciesPage> {
 
   bool isClosed(dynamic pharmacy) {
     return !isOpen(pharmacy) && !isDuty(pharmacy);
+  }
+
+  String getOpenStatus(dynamic pharmacy) {
+    return isOpen(pharmacy) ? 'Ouverte' : 'Fermée';
+  }
+
+  Color getOpenStatusColor(dynamic pharmacy) {
+    return isOpen(pharmacy) ? AppColors.primaryGreen : Colors.red;
+  }
+
+  IconData getOpenStatusIcon(dynamic pharmacy) {
+    return isOpen(pharmacy)
+        ? Icons.local_pharmacy_rounded
+        : Icons.lock_outline_rounded;
+  }
+
+  String getDutyStatus(dynamic pharmacy) {
+    return isDuty(pharmacy) ? 'En garde' : 'Pas en garde';
+  }
+
+  Color getDutyStatusColor(dynamic pharmacy) {
+    return isDuty(pharmacy) ? Colors.orange : Colors.grey;
+  }
+
+  IconData getDutyStatusIcon(dynamic pharmacy) {
+    return isDuty(pharmacy)
+        ? Icons.star_rounded
+        : Icons.star_border_rounded;
   }
 
   List<dynamic> get visiblePharmacies {
@@ -618,9 +645,12 @@ class _PharmaciesPageState extends State<PharmaciesPage> {
                   name: pharmacy['nom']?.toString() ?? 'Pharmacie',
                   address: pharmacy['adresse']?.toString() ?? '',
                   distance: getDistance(pharmacy),
-                  status: getStatus(pharmacy),
-                  statusColor: getStatusColor(pharmacy),
-                  statusIcon: getStatusIcon(pharmacy),
+                  openStatus: getOpenStatus(pharmacy),
+                  openStatusColor: getOpenStatusColor(pharmacy),
+                  openStatusIcon: getOpenStatusIcon(pharmacy),
+                  dutyStatus: getDutyStatus(pharmacy),
+                  dutyStatusColor: getDutyStatusColor(pharmacy),
+                  dutyStatusIcon: getDutyStatusIcon(pharmacy),
                   commune: pharmacy['commune']?.toString() ?? '',
                   wilaya: pharmacy['wilaya']?.toString() ?? '',
                   onCall: () => callPhone(
@@ -735,6 +765,34 @@ class _PharmaciesMapSection extends StatelessWidget {
     return boolValue(pharmacy['est_de_garde']);
   }
 
+  String openStatusLabel(dynamic pharmacy) {
+    return isOpen(pharmacy) ? 'Ouverte' : 'Fermée';
+  }
+
+  Color openStatusColor(dynamic pharmacy) {
+    return isOpen(pharmacy) ? AppColors.primaryGreen : Colors.red;
+  }
+
+  IconData openStatusIcon(dynamic pharmacy) {
+    return isOpen(pharmacy)
+        ? Icons.local_pharmacy_rounded
+        : Icons.lock_outline_rounded;
+  }
+
+  String dutyStatusLabel(dynamic pharmacy) {
+    return isDuty(pharmacy) ? 'En garde' : 'Pas en garde';
+  }
+
+  Color dutyStatusColor(dynamic pharmacy) {
+    return isDuty(pharmacy) ? Colors.orange : Colors.grey;
+  }
+
+  IconData dutyStatusIcon(dynamic pharmacy) {
+    return isDuty(pharmacy)
+        ? Icons.star_rounded
+        : Icons.star_border_rounded;
+  }
+
   String getStatus(dynamic pharmacy) {
     if (isDuty(pharmacy)) return 'De garde';
     if (isOpen(pharmacy)) return 'Ouverte';
@@ -778,7 +836,6 @@ class _PharmaciesMapSection extends StatelessWidget {
 
   void showPharmacySheet(BuildContext context, dynamic pharmacy) {
     final distance = distanceText(pharmacy);
-    final status = getStatus(pharmacy);
     final color = getMarkerColor(pharmacy);
     final icon = getMarkerIcon(pharmacy);
 
@@ -847,12 +904,21 @@ class _PharmaciesMapSection extends StatelessWidget {
 
                     const SizedBox(height: 12),
 
-                    Text(
-                      status,
-                      style: TextStyle(
-                        color: color,
-                        fontWeight: FontWeight.w900,
-                      ),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _PharmacyInfoChip(
+                          icon: openStatusIcon(pharmacy),
+                          label: openStatusLabel(pharmacy),
+                          color: openStatusColor(pharmacy),
+                        ),
+                        _PharmacyInfoChip(
+                          icon: dutyStatusIcon(pharmacy),
+                          label: dutyStatusLabel(pharmacy),
+                          color: dutyStatusColor(pharmacy),
+                        ),
+                      ],
                     ),
 
                     const SizedBox(height: 12),
@@ -1109,9 +1175,12 @@ class _PharmacyCard extends StatelessWidget {
   final String name;
   final String address;
   final String distance;
-  final String status;
-  final Color statusColor;
-  final IconData statusIcon;
+  final String openStatus;
+  final Color openStatusColor;
+  final IconData openStatusIcon;
+  final String dutyStatus;
+  final Color dutyStatusColor;
+  final IconData dutyStatusIcon;
   final String commune;
   final String wilaya;
   final VoidCallback onCall;
@@ -1122,9 +1191,12 @@ class _PharmacyCard extends StatelessWidget {
     required this.name,
     required this.address,
     required this.distance,
-    required this.status,
-    required this.statusColor,
-    required this.statusIcon,
+    required this.openStatus,
+    required this.openStatusColor,
+    required this.openStatusIcon,
+    required this.dutyStatus,
+    required this.dutyStatusColor,
+    required this.dutyStatusIcon,
     required this.commune,
     required this.wilaya,
     required this.onCall,
@@ -1154,12 +1226,12 @@ class _PharmacyCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(13),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.12),
+                  color: openStatusColor.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Icon(
-                  statusIcon,
-                  color: statusColor,
+                  openStatusIcon,
+                  color: openStatusColor,
                 ),
               ),
 
@@ -1198,13 +1270,28 @@ class _PharmacyCard extends StatelessWidget {
                         fontSize: 12,
                       ),
                     ),
+
+                    const SizedBox(height: 10),
+
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _PharmacyInfoChip(
+                          icon: openStatusIcon,
+                          label: openStatus,
+                          color: openStatusColor,
+                        ),
+                        _PharmacyInfoChip(
+                          icon: dutyStatusIcon,
+                          label: dutyStatus,
+                          color: dutyStatusColor,
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
-
-              const SizedBox(width: 8),
-
-              StatusChip(label: status),
             ],
           ),
 
@@ -1268,6 +1355,51 @@ class _PharmacyCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PharmacyInfoChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _PharmacyInfoChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 7,
+      ),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            color: color,
+            size: 16,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
             ),
           ),
         ],

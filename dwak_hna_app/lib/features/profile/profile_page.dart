@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../auth/login_page.dart';
+import 'change_password_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -619,6 +620,40 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
 
             const SizedBox(height: 18),
+
+
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const ChangePasswordPage(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.lock_reset_rounded),
+                label: const Text(
+                  'Modifier mot de passe',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primaryGreen,
+                  side: const BorderSide(
+                    color: AppColors.primaryGreen,
+                    width: 1.4,
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
 
             SizedBox(
               width: double.infinity,
