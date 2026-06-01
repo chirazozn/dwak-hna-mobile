@@ -1,4 +1,4 @@
-import os
+﻿import os
 import json
 import uuid
 from decimal import Decimal
@@ -973,103 +973,100 @@ def note_demande(demande_id):
         cursor.close()
         conn.close()
 
+@demande_bp.post("/<int:demande_id>/terminer")
+@auth_patient
+def terminer_demande(demande_id):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
 
+    try:
+        data = request.get_json() or {}
 
-       # Ajoute cette route dans backend_flask_mysql/routes/demande_routes.py
-       # vers la fin du fichier, avec les autres routes demande.
+        note = data.get("note_pharmacie")
+        commentaire = (data.get("commentaire") or "").strip()
 
-       @demande_bp.post("/<int:demande_id>/terminer")
-       def terminer_demande(demande_id):
-           conn = get_db_connection()
-           cursor = conn.cursor(dictionary=True)
+        try:
+            note = int(note)
+        except Exception:
+            return jsonify({
+                "success": False,
+                "message": "Note invalide"
+            }), 400
 
-           try:
-               data = request.get_json() or {}
+        if note < 1 or note > 5:
+            return jsonify({
+                "success": False,
+                "message": "La note doit être entre 1 et 5"
+            }), 400
 
-               note = data.get("note_pharmacie")
-               commentaire = (data.get("commentaire") or "").strip()
+        cursor.execute(
+            """
+            SELECT demande_id, patient_id, etat, pharmacie_choisie_id
+            FROM demandes
+            WHERE demande_id = %s
+            AND patient_id = %s
+            LIMIT 1
+            """,
+            (
+                demande_id,
+                request.patient["patient_id"],
+            )
+        )
 
-               try:
-                   note = int(note)
-               except Exception:
-                   return jsonify({
-                       "success": False,
-                       "message": "Note invalide"
-                   }), 400
+        demande = cursor.fetchone()
 
-               if note < 1 or note > 5:
-                   return jsonify({
-                       "success": False,
-                       "message": "La note doit être entre 1 et 5"
-                   }), 400
+        if not demande:
+            return jsonify({
+                "success": False,
+                "message": "Demande introuvable"
+            }), 404
 
-               cursor.execute(
-                   """
-                   SELECT demande_id, patient_id, etat, pharmacie_choisie_id
-                   FROM demandes
-                   WHERE demande_id = %s
-                   AND patient_id = %s
-                   LIMIT 1
-                   """,
-                   (
-                       demande_id,
-                       request.patient["patient_id"],
-                   )
-               )
+        if demande["etat"] != "pharmacie_choisie":
+            return jsonify({
+                "success": False,
+                "message": "Cette demande ne peut pas être terminée"
+            }), 400
 
-               demande = cursor.fetchone()
+        if not demande["pharmacie_choisie_id"]:
+            return jsonify({
+                "success": False,
+                "message": "Aucune pharmacie choisie"
+            }), 400
 
-               if not demande:
-                   return jsonify({
-                       "success": False,
-                       "message": "Demande introuvable"
-                   }), 404
+        cursor.execute(
+            """
+            UPDATE demandes
+            SET etat = 'termine',
+                note_pharmacie = %s,
+                commentaire = %s,
+                modifie_le = NOW()
+            WHERE demande_id = %s
+            AND patient_id = %s
+            """,
+            (
+                note,
+                commentaire if commentaire else None,
+                demande_id,
+                request.patient["patient_id"],
+            )
+        )
 
-               if demande["etat"] != "pharmacie_choisie":
-                   return jsonify({
-                       "success": False,
-                       "message": "Cette demande ne peut pas être terminée"
-                   }), 400
+        conn.commit()
 
-               if not demande["pharmacie_choisie_id"]:
-                   return jsonify({
-                       "success": False,
-                       "message": "Aucune pharmacie choisie"
-                   }), 400
+        return jsonify({
+            "success": True,
+            "message": "Demande terminée avec succès"
+        })
 
-               cursor.execute(
-                   """
-                   UPDATE demandes
-                   SET etat = 'termine',
-                       note_pharmacie = %s,
-                       commentaire = %s,
-                       modifie_le = NOW()
-                   WHERE demande_id = %s
-                   AND patient_id = %s
-                   """,
-                   (
-                       note,
-                       commentaire if commentaire else None,
-                       demande_id,
-                       request.patient["patient_id"],
-                   )
-               )
+    except Exception as e:
+        conn.rollback()
+        print("TERMINER DEMANDE ERROR:", e)
+        return jsonify({
+            "success": False,
+            "message": "Erreur serveur"
+        }), 500
 
-               conn.commit()
+    finally:
+        cursor.close()
+        conn.close()
 
-               return jsonify({
-                   "success": True,
-                   "message": "Demande terminée avec succès"
-               })
-
-           except Exception as e:
-               conn.rollback()
-               print("TERMINER DEMANDE ERROR:", e)
-               return jsonify({
-                   "success": False,
-                   "message": "Erreur serveur"
-               }), 500
-
-           finally:
-               cursor.close()
-               conn.close()
