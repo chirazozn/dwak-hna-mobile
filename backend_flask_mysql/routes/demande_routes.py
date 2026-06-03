@@ -10,6 +10,7 @@ from werkzeug.utils import secure_filename
 from config.db import get_db_connection
 from middleware.auth_middleware import auth_patient
 
+
 demande_bp = Blueprint("demande", __name__)
 
 
@@ -135,6 +136,8 @@ def get_ordonnance_form_data():
             "latitude": request.form.get("latitude"),
             "longitude": request.form.get("longitude"),
             "ordonnance_url": request.form.get("ordonnance_url") or request.form.get("image_url"),
+            "mode_recherche": request.form.get("mode_recherche", "rayon"),
+            "wilaya_ids": request.form.get("wilaya_ids", "[]"),
         }
 
     data = request.get_json(silent=True) or {}
@@ -146,6 +149,8 @@ def get_ordonnance_form_data():
         "latitude": data.get("latitude"),
         "longitude": data.get("longitude"),
         "ordonnance_url": data.get("ordonnance_url") or data.get("image_url"),
+        "mode_recherche": data.get("mode_recherche", "rayon"),
+        "wilaya_ids": data.get("wilaya_ids", []),
     }
 
 
@@ -334,11 +339,98 @@ def fetch_ordonnances_for_demande(cursor, demande_id):
         return []
 
 
-def attach_demande_to_nearby_pharmacies(cursor, demande_id, latitude, longitude, rayon_km):
-    if latitude is None or longitude is None:
-        return
+def parse_wilaya_ids(value):
+    if value is None:
+        return []
+
+    if isinstance(value, list):
+        raw_items = value
+    elif isinstance(value, str):
+        text = value.strip()
+
+        if not text:
+            return []
+
+        try:
+            parsed = json.loads(text)
+            raw_items = parsed if isinstance(parsed, list) else [parsed]
+        except Exception:
+            raw_items = text.split(',')
+    else:
+        raw_items = [value]
+
+    ids = []
+
+    for item in raw_items:
+        try:
+            wilaya_id = int(item)
+            if wilaya_id > 0 and wilaya_id not in ids:
+                ids.append(wilaya_id)
+        except Exception:
+            pass
+
+    return ids
+
+
+def attach_demande_to_pharmacies(
+    cursor,
+    demande_id,
+    latitude=None,
+    longitude=None,
+    rayon_km=5,
+    mode_recherche='rayon',
+    wilaya_ids=None,
+):
+    mode_recherche = (mode_recherche or 'rayon').strip().lower()
+    wilaya_ids = parse_wilaya_ids(wilaya_ids)
 
     try:
+        if mode_recherche == 'national':
+            cursor.execute(
+                """
+                INSERT IGNORE INTO demande_pharmacies
+                (demande_id, pharmacie_id, statut)
+                SELECT
+                    %s AS demande_id,
+                    p.pharmacie_id,
+                    'en_attente' AS statut
+                FROM pharmacies p
+                WHERE p.statut = 'approuvee'
+                """,
+                (demande_id,)
+            )
+            return
+
+        if mode_recherche == 'wilaya':
+            if not wilaya_ids:
+                return
+
+            placeholders = ', '.join(['%s'] * len(wilaya_ids))
+
+            cursor.execute(
+                f"""
+                INSERT IGNORE INTO demande_pharmacies
+                (demande_id, pharmacie_id, statut)
+                SELECT
+                    %s AS demande_id,
+                    p.pharmacie_id,
+                    'en_attente' AS statut
+                FROM pharmacies p
+                WHERE p.statut = 'approuvee'
+                AND p.wilaya_id IN ({placeholders})
+                """,
+                tuple([demande_id] + wilaya_ids)
+            )
+            return
+
+        if latitude is None or longitude is None:
+            return
+
+        try:
+            rayon_km = int(float(rayon_km))
+        except Exception:
+            rayon_km = 5
+
         cursor.execute(
             """
             INSERT IGNORE INTO demande_pharmacies
@@ -377,6 +469,18 @@ def attach_demande_to_nearby_pharmacies(cursor, demande_id, latitude, longitude,
         )
     except Exception as e:
         print("ATTACH PHARMACIES WARNING:", e)
+
+
+def attach_demande_to_nearby_pharmacies(cursor, demande_id, latitude, longitude, rayon_km):
+    attach_demande_to_pharmacies(
+        cursor=cursor,
+        demande_id=demande_id,
+        latitude=latitude,
+        longitude=longitude,
+        rayon_km=rayon_km,
+        mode_recherche='rayon',
+        wilaya_ids=[],
+    )
 
 
 @demande_bp.get("/patient")
@@ -608,6 +712,8 @@ def get_demande_detail(demande_id):
     finally:
         cursor.close()
         conn.close()
+
+
 @demande_bp.post("/manuelle")
 @auth_patient
 def create_demande_manuelle():
@@ -618,6 +724,8 @@ def create_demande_manuelle():
     rayon_km = data.get("rayon_km", 5)
     latitude = data.get("latitude")
     longitude = data.get("longitude")
+    mode_recherche = data.get("mode_recherche", "rayon")
+    wilaya_ids = parse_wilaya_ids(data.get("wilaya_ids", []))
 
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
@@ -657,12 +765,14 @@ def create_demande_manuelle():
                 )
             )
 
-        attach_demande_to_nearby_pharmacies(
+        attach_demande_to_pharmacies(
             cursor=cursor,
             demande_id=demande_id,
             latitude=latitude,
             longitude=longitude,
             rayon_km=rayon_km,
+            mode_recherche=mode_recherche,
+            wilaya_ids=wilaya_ids,
         )
 
         conn.commit()
@@ -697,6 +807,8 @@ def create_demande_ordonnance():
     latitude = form_data.get("latitude")
     longitude = form_data.get("longitude")
     ordonnance_url = form_data.get("ordonnance_url")
+    mode_recherche = form_data.get("mode_recherche", "rayon")
+    wilaya_ids = parse_wilaya_ids(form_data.get("wilaya_ids", []))
 
     try:
         rayon_km = int(float(rayon_km))
@@ -762,12 +874,14 @@ def create_demande_ordonnance():
                 )
             )
 
-        attach_demande_to_nearby_pharmacies(
+        attach_demande_to_pharmacies(
             cursor=cursor,
             demande_id=demande_id,
             latitude=latitude,
             longitude=longitude,
             rayon_km=rayon_km,
+            mode_recherche=mode_recherche,
+            wilaya_ids=wilaya_ids,
         )
 
         conn.commit()
@@ -973,6 +1087,7 @@ def note_demande(demande_id):
         cursor.close()
         conn.close()
 
+
 @demande_bp.post("/<int:demande_id>/terminer")
 @auth_patient
 def terminer_demande(demande_id):
@@ -1069,4 +1184,3 @@ def terminer_demande(demande_id):
     finally:
         cursor.close()
         conn.close()
-

@@ -21,33 +21,29 @@ class DemandeService {
   }
 
   Future<List<dynamic>> getPatientDemandes() async {
-  final response = await http.get(
-    Uri.parse('$baseUrl/api/demandes/patient'),
-    headers: await _headers(),
-  );
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/demandes/patient'),
+      headers: await _headers(),
+    );
 
-  print('GET DEMANDES STATUS: ${response.statusCode}');
-  print('GET DEMANDES BODY: ${response.body}');
+    print('GET DEMANDES STATUS: ${response.statusCode}');
+    print('GET DEMANDES BODY: ${response.body}');
 
-  final body = jsonDecode(response.body);
+    final body = jsonDecode(response.body);
 
-  if (response.statusCode == 200 && body['success'] == true) {
-    final data = body['data'];
-
-    if (data is List) {
-      print('NB DEMANDES FLUTTER: ${data.length}');
-      return data;
+    if (response.statusCode == 200 && body['success'] == true) {
+      final data = body['data'];
+      if (data is List) {
+        print('NB DEMANDES FLUTTER: ${data.length}');
+        return data;
+      }
+      return [];
     }
 
-    return [];
+    throw Exception(body['message'] ?? 'Erreur chargement demandes');
   }
 
-  throw Exception(body['message'] ?? 'Erreur chargement demandes');
-}
-
-  Future<Map<String, dynamic>> getDemandeDetail({
-    required int demandeId,
-  }) async {
+  Future<Map<String, dynamic>> getDemandeDetail({required int demandeId}) async {
     final response = await http.get(
       Uri.parse('$baseUrl/api/demandes/$demandeId'),
       headers: await _headers(),
@@ -67,6 +63,8 @@ class DemandeService {
     required double latitude,
     required double longitude,
     required int rayonKm,
+    String modeRecherche = 'rayon',
+    List<int> wilayaIds = const [],
     String? messagePatient,
   }) async {
     final response = await http.post(
@@ -78,100 +76,60 @@ class DemandeService {
         'rayon_km': rayonKm,
         'latitude': latitude,
         'longitude': longitude,
+        'mode_recherche': modeRecherche,
+        'wilaya_ids': wilayaIds,
       }),
     );
 
     final body = jsonDecode(response.body);
 
-    if ((response.statusCode == 200 || response.statusCode == 201) &&
-        body['success'] == true) {
+    if ((response.statusCode == 200 || response.statusCode == 201) && body['success'] == true) {
       return true;
     }
 
     throw Exception(body['message'] ?? 'Erreur création demande');
   }
 
-  Future<bool> choisirPharmacie({
-    required int demandeId,
-    required int pharmacieId,
-  }) async {
+  Future<bool> choisirPharmacie({required int demandeId, required int pharmacieId}) async {
     final response = await http.post(
       Uri.parse('$baseUrl/api/demandes/$demandeId/choisir-pharmacie'),
       headers: await _headers(),
-      body: jsonEncode({
-        'pharmacie_id': pharmacieId,
-      }),
+      body: jsonEncode({'pharmacie_id': pharmacieId}),
     );
-
     final body = jsonDecode(response.body);
-
-    if (response.statusCode == 200 && body['success'] == true) {
-      return true;
-    }
-
+    if (response.statusCode == 200 && body['success'] == true) return true;
     throw Exception(body['message'] ?? 'Erreur choix pharmacie');
   }
 
-  Future<bool> noterDemande({
-    required int demandeId,
-    required int notePharmacie,
-    String? commentaire,
-  }) async {
+  Future<bool> noterDemande({required int demandeId, required int notePharmacie, String? commentaire}) async {
     final response = await http.post(
       Uri.parse('$baseUrl/api/demandes/$demandeId/note'),
       headers: await _headers(),
-      body: jsonEncode({
-        'note_pharmacie': notePharmacie,
-        'commentaire': commentaire,
-      }),
+      body: jsonEncode({'note_pharmacie': notePharmacie, 'commentaire': commentaire}),
     );
-
     final body = jsonDecode(response.body);
-
-    if (response.statusCode == 200 && body['success'] == true) {
-      return true;
-    }
-
+    if (response.statusCode == 200 && body['success'] == true) return true;
     throw Exception(body['message'] ?? 'Erreur notation demande');
   }
 
-  Future<bool> annulerDemande({
-    required int demandeId,
-  }) async {
+  Future<bool> annulerDemande({required int demandeId}) async {
     final response = await http.post(
       Uri.parse('$baseUrl/api/demandes/$demandeId/annuler'),
       headers: await _headers(),
     );
-
     final body = jsonDecode(response.body);
-
-    if (response.statusCode == 200 && body['success'] == true) {
-      return true;
-    }
-
+    if (response.statusCode == 200 && body['success'] == true) return true;
     throw Exception(body['message'] ?? 'Erreur annulation demande');
   }
-  Future<void> terminerDemande({
-     required int demandeId,
-     required int notePharmacie,
-     required String commentaire,
-   }) async {
-     final response = await http.post(
-       Uri.parse('$baseUrl/api/demandes/$demandeId/terminer'),
-       headers: await _headers(),
-       body: jsonEncode({
-         'note_pharmacie': notePharmacie,
-         'commentaire': commentaire,
-       }),
-     );
 
-     final body = jsonDecode(response.body);
-
-     if (response.statusCode == 200 && body['success'] == true) {
-       return;
-     }
-
-     throw Exception(body['message'] ?? 'Erreur terminaison demande');
-   }
-
+  Future<void> terminerDemande({required int demandeId, required int notePharmacie, required String commentaire}) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/demandes/$demandeId/terminer'),
+      headers: await _headers(),
+      body: jsonEncode({'note_pharmacie': notePharmacie, 'commentaire': commentaire}),
+    );
+    final body = jsonDecode(response.body);
+    if (response.statusCode == 200 && body['success'] == true) return;
+    throw Exception(body['message'] ?? 'Erreur terminaison demande');
+  }
 }
