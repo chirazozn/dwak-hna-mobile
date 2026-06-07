@@ -8,11 +8,7 @@ class PanierService {
 
     if (result['success'] == true) {
       final data = result['data'];
-
-      if (data == null) {
-        return null;
-      }
-
+      if (data == null) return null;
       return Map<String, dynamic>.from(data);
     }
 
@@ -74,5 +70,15 @@ class PanierService {
     }
 
     throw Exception(result['message'] ?? 'Erreur validation panier');
+  }
+
+  Future<List<dynamic>> historiqueCommandes() async {
+    final result = await _api.get('/panier/historique');
+
+    if (result['success'] == true) {
+      return result['data'] ?? [];
+    }
+
+    return [];
   }
 }

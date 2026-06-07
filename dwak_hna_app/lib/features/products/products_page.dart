@@ -28,7 +28,6 @@ class _ProductsPageState extends State<ProductsPage> {
   String selectedDistance = 'all';
   String selectedPrice = 'all';
   String selectedSort = 'default';
-
   final Set<String> selectedCategories = {};
 
   @override
@@ -38,10 +37,7 @@ class _ProductsPageState extends State<ProductsPage> {
 
     searchController.addListener(() {
       searchDebounce?.cancel();
-      searchDebounce = Timer(
-        const Duration(milliseconds: 450),
-        loadProduits,
-      );
+      searchDebounce = Timer(const Duration(milliseconds: 450), loadProduits);
     });
   }
 
@@ -71,7 +67,6 @@ class _ProductsPageState extends State<ProductsPage> {
       });
     } catch (e) {
       if (!mounted) return;
-
       setState(() {
         error = e.toString().replaceFirst('Exception: ', '');
         isLoading = false;
@@ -81,20 +76,14 @@ class _ProductsPageState extends State<ProductsPage> {
 
   String textValue(dynamic value, String fallback) {
     if (value == null) return fallback;
-
     final text = value.toString().trim();
-
-    if (text.isEmpty || text == 'null') {
-      return fallback;
-    }
-
+    if (text.isEmpty || text == 'null') return fallback;
     return text;
   }
 
   double? doubleValue(dynamic value) {
     if (value == null) return null;
     if (value is num) return value.toDouble();
-
     return double.tryParse(value.toString());
   }
 
@@ -104,25 +93,11 @@ class _ProductsPageState extends State<ProductsPage> {
 
   String priceValue(dynamic value) {
     final price = doubleValue(value);
-
-    if (price == null) {
-      return 'Prix non défini';
-    }
-
+    if (price == null) return 'Prix non défini';
     return '${price.toStringAsFixed(2)} DA';
   }
 
-  bool isAvailable(dynamic produit) {
-    return boolValue(produit['est_disponible']);
-  }
-
-  bool isOpen(dynamic produit) {
-    return boolValue(produit['est_ouverte']);
-  }
-
-  bool isDuty(dynamic produit) {
-    return boolValue(produit['est_de_garde']);
-  }
+  bool isAvailable(dynamic produit) => boolValue(produit['est_disponible']);
 
   String categoryValue(dynamic produit) {
     return textValue(
@@ -131,13 +106,10 @@ class _ProductsPageState extends State<ProductsPage> {
     );
   }
 
-  double? distanceValue(dynamic produit) {
-    return doubleValue(produit['distance_km']);
-  }
+  double? distanceValue(dynamic produit) => doubleValue(produit['distance_km']);
 
   List<String> categoriesOfProduct(dynamic produit) {
     final raw = categoryValue(produit);
-
     return raw
         .split(',')
         .map((item) => item.trim())
@@ -147,22 +119,15 @@ class _ProductsPageState extends State<ProductsPage> {
 
   List<String> get categoryOptions {
     final categories = <String>{};
-
     for (final produit in produits) {
-      for (final category in categoriesOfProduct(produit)) {
-        categories.add(category);
-      }
+      categories.addAll(categoriesOfProduct(produit));
     }
-
     final list = categories.toList()..sort();
-
     return list;
   }
 
   bool productMatchesSelectedCategories(dynamic produit) {
-    if (selectedCategories.isEmpty) {
-      return true;
-    }
+    if (selectedCategories.isEmpty) return true;
 
     final productCategories = categoriesOfProduct(produit)
         .map((category) => category.toLowerCase())
@@ -170,15 +135,10 @@ class _ProductsPageState extends State<ProductsPage> {
 
     for (final selected in selectedCategories) {
       final selectedLower = selected.toLowerCase();
-
       final exists = productCategories.any(
-        (category) =>
-            category == selectedLower || category.contains(selectedLower),
+        (category) => category == selectedLower || category.contains(selectedLower),
       );
-
-      if (exists) {
-        return true;
-      }
+      if (exists) return true;
     }
 
     return false;
@@ -189,61 +149,28 @@ class _ProductsPageState extends State<ProductsPage> {
       final price = doubleValue(produit['prix']) ?? 0;
       final distance = distanceValue(produit);
 
-      if (selectedPrice == 'under_1000' && price >= 1000) {
-        return false;
-      }
+      if (selectedPrice == 'under_1000' && price >= 1000) return false;
+      if (selectedPrice == '1000_2000' && (price < 1000 || price > 2000)) return false;
+      if (selectedPrice == 'over_2000' && price <= 2000) return false;
 
-      if (selectedPrice == '1000_2000' && (price < 1000 || price > 2000)) {
-        return false;
-      }
-
-      if (selectedPrice == 'over_2000' && price <= 2000) {
-        return false;
-      }
-
-      if (!productMatchesSelectedCategories(produit)) {
-        return false;
-      }
+      if (!productMatchesSelectedCategories(produit)) return false;
 
       if (selectedDistance != 'all' && distance != null) {
         final maxDistance = double.tryParse(selectedDistance);
-
-        if (maxDistance != null && distance > maxDistance) {
-          return false;
-        }
+        if (maxDistance != null && distance > maxDistance) return false;
       }
 
       return true;
     }).toList();
 
     if (selectedSort == 'price_asc') {
-      result.sort((a, b) {
-        final priceA = doubleValue(a['prix']) ?? 999999999;
-        final priceB = doubleValue(b['prix']) ?? 999999999;
-
-        return priceA.compareTo(priceB);
-      });
+      result.sort((a, b) => (doubleValue(a['prix']) ?? 999999999).compareTo(doubleValue(b['prix']) ?? 999999999));
     } else if (selectedSort == 'price_desc') {
-      result.sort((a, b) {
-        final priceA = doubleValue(a['prix']) ?? 0;
-        final priceB = doubleValue(b['prix']) ?? 0;
-
-        return priceB.compareTo(priceA);
-      });
+      result.sort((a, b) => (doubleValue(b['prix']) ?? 0).compareTo(doubleValue(a['prix']) ?? 0));
     } else if (selectedSort == 'name') {
-      result.sort((a, b) {
-        final nameA = textValue(a['produit_nom'], '');
-        final nameB = textValue(b['produit_nom'], '');
-
-        return nameA.compareTo(nameB);
-      });
+      result.sort((a, b) => textValue(a['produit_nom'], '').compareTo(textValue(b['produit_nom'], '')));
     } else if (selectedSort == 'distance') {
-      result.sort((a, b) {
-        final distanceA = distanceValue(a) ?? 999999;
-        final distanceB = distanceValue(b) ?? 999999;
-
-        return distanceA.compareTo(distanceB);
-      });
+      result.sort((a, b) => (distanceValue(a) ?? 999999).compareTo(distanceValue(b) ?? 999999));
     }
 
     return result;
@@ -276,14 +203,8 @@ class _ProductsPageState extends State<ProductsPage> {
   }
 
   String categoryLabel() {
-    if (selectedCategories.isEmpty) {
-      return 'Catégorie';
-    }
-
-    if (selectedCategories.length == 1) {
-      return selectedCategories.first;
-    }
-
+    if (selectedCategories.isEmpty) return 'Catégorie';
+    if (selectedCategories.length == 1) return selectedCategories.first;
     return '${selectedCategories.length} catégories';
   }
 
@@ -317,9 +238,7 @@ class _ProductsPageState extends State<ProductsPage> {
 
     if (pharmacieProduitId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Produit invalide'),
-        ),
+        const SnackBar(content: Text('Produit invalide')),
       );
       return;
     }
@@ -335,17 +254,24 @@ class _ProductsPageState extends State<ProductsPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('$name ajouté au panier'),
+          action: SnackBarAction(
+            label: 'Panier',
+            onPressed: openCart,
+          ),
         ),
       );
     } catch (e) {
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString().replaceFirst('Exception: ', '')),
-        ),
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
       );
     }
+  }
+
+  void openCart() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const CartPage()),
+    );
   }
 
   void openProductDetails(dynamic produit) {
@@ -353,9 +279,7 @@ class _ProductsPageState extends State<ProductsPage> {
       MaterialPageRoute(
         builder: (_) => ProductDetailsPage(
           produit: produit,
-          onAddToCart: () {
-            addToCart(produit);
-          },
+          onAddToCart: () => addToCart(produit),
         ),
       ),
     );
@@ -365,50 +289,38 @@ class _ProductsPageState extends State<ProductsPage> {
     final value = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (_) {
-        return _FilterSheet(
-          title: 'Filtrer par distance',
-          options: const [
-            _FilterOption(value: 'all', label: 'Toutes les distances'),
-            _FilterOption(value: '2', label: 'Moins de 2 km'),
-            _FilterOption(value: '5', label: 'Moins de 5 km'),
-            _FilterOption(value: '10', label: 'Moins de 10 km'),
-          ],
-          selectedValue: selectedDistance,
-        );
-      },
+      builder: (_) => _FilterSheet(
+        title: 'Filtrer par distance',
+        options: const [
+          _FilterOption(value: 'all', label: 'Toutes les distances'),
+          _FilterOption(value: '2', label: 'Moins de 2 km'),
+          _FilterOption(value: '5', label: 'Moins de 5 km'),
+          _FilterOption(value: '10', label: 'Moins de 10 km'),
+        ],
+        selectedValue: selectedDistance,
+      ),
     );
 
-    if (value != null) {
-      setState(() {
-        selectedDistance = value;
-      });
-    }
+    if (value != null) setState(() => selectedDistance = value);
   }
 
   Future<void> openPriceFilter() async {
     final value = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (_) {
-        return _FilterSheet(
-          title: 'Filtrer par prix',
-          options: const [
-            _FilterOption(value: 'all', label: 'Tous les prix'),
-            _FilterOption(value: 'under_1000', label: 'Moins de 1000 DA'),
-            _FilterOption(value: '1000_2000', label: '1000 - 2000 DA'),
-            _FilterOption(value: 'over_2000', label: 'Plus de 2000 DA'),
-          ],
-          selectedValue: selectedPrice,
-        );
-      },
+      builder: (_) => _FilterSheet(
+        title: 'Filtrer par prix',
+        options: const [
+          _FilterOption(value: 'all', label: 'Tous les prix'),
+          _FilterOption(value: 'under_1000', label: 'Moins de 1000 DA'),
+          _FilterOption(value: '1000_2000', label: '1000 - 2000 DA'),
+          _FilterOption(value: 'over_2000', label: 'Plus de 2000 DA'),
+        ],
+        selectedValue: selectedPrice,
+      ),
     );
 
-    if (value != null) {
-      setState(() {
-        selectedPrice = value;
-      });
-    }
+    if (value != null) setState(() => selectedPrice = value);
   }
 
   Future<void> openCategoryFilter() async {
@@ -416,12 +328,10 @@ class _ProductsPageState extends State<ProductsPage> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) {
-        return _CategoryFilterSheet(
-          categories: categoryOptions,
-          selectedCategories: selectedCategories,
-        );
-      },
+      builder: (_) => _CategoryFilterSheet(
+        categories: categoryOptions,
+        selectedCategories: selectedCategories,
+      ),
     );
 
     if (value != null) {
@@ -437,26 +347,20 @@ class _ProductsPageState extends State<ProductsPage> {
     final value = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (_) {
-        return _FilterSheet(
-          title: 'Trier les produits',
-          options: const [
-            _FilterOption(value: 'default', label: 'Par défaut'),
-            _FilterOption(value: 'price_asc', label: 'Prix croissant'),
-            _FilterOption(value: 'price_desc', label: 'Prix décroissant'),
-            _FilterOption(value: 'name', label: 'Nom A-Z'),
-            _FilterOption(value: 'distance', label: 'Distance'),
-          ],
-          selectedValue: selectedSort,
-        );
-      },
+      builder: (_) => _FilterSheet(
+        title: 'Trier les produits',
+        options: const [
+          _FilterOption(value: 'default', label: 'Par défaut'),
+          _FilterOption(value: 'price_asc', label: 'Prix croissant'),
+          _FilterOption(value: 'price_desc', label: 'Prix décroissant'),
+          _FilterOption(value: 'name', label: 'Nom A-Z'),
+          _FilterOption(value: 'distance', label: 'Distance'),
+        ],
+        selectedValue: selectedSort,
+      ),
     );
 
-    if (value != null) {
-      setState(() {
-        selectedSort = value;
-      });
-    }
+    if (value != null) setState(() => selectedSort = value);
   }
 
   @override
@@ -474,18 +378,8 @@ class _ProductsPageState extends State<ProductsPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _HomeLikeHeader(
-                      onCartTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const CartPage(),
-                          ),
-                        );
-                      },
-                    ),
-
+                    _Header(onCartTap: openCart),
                     const SizedBox(height: 18),
-
                     TextField(
                       controller: searchController,
                       decoration: InputDecoration(
@@ -508,9 +402,7 @@ class _ProductsPageState extends State<ProductsPage> {
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 16),
-
                     Wrap(
                       spacing: 10,
                       runSpacing: 10,
@@ -548,53 +440,27 @@ class _ProductsPageState extends State<ProductsPage> {
                         ),
                       ],
                     ),
-
                     const SizedBox(height: 24),
-
                     Row(
                       children: [
                         const Expanded(
-                          child: Text(
-                            'Produits recommandés',
-                            style: TextStyle(
-                              fontSize: 23,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
+                          child: Text('Produits recommandés', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900)),
                         ),
-                        Text(
-                          '${visibleProducts.length} produit(s)',
-                          style: const TextStyle(
-                            color: AppColors.primaryGreen,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
+                        Text('${visibleProducts.length} produit(s)', style: const TextStyle(color: AppColors.primaryGreen, fontWeight: FontWeight.w800)),
                       ],
                     ),
-
                     const SizedBox(height: 14),
                   ],
                 ),
               ),
             ),
-
             if (isLoading)
-              const SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(
-                  child: CircularProgressIndicator(),
-                ),
-              )
+              const SliverFillRemaining(hasScrollBody: false, child: Center(child: CircularProgressIndicator()))
             else if (error != null)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(18),
-                  child: _InfoCard(
-                    icon: Icons.error_outline,
-                    title: 'Erreur',
-                    message: error!,
-                    color: Colors.red,
-                  ),
+                  child: _InfoCard(icon: Icons.error_outline, title: 'Erreur', message: error!, color: Colors.red),
                 ),
               )
             else if (visibleProducts.isEmpty)
@@ -604,8 +470,7 @@ class _ProductsPageState extends State<ProductsPage> {
                   child: _InfoCard(
                     icon: Icons.shopping_bag_outlined,
                     title: 'Aucun produit trouvé',
-                    message:
-                        'Aucun produit ne correspond à votre recherche ou vos filtres.',
+                    message: 'Aucun produit ne correspond à votre recherche ou vos filtres.',
                     color: AppColors.primaryGreen,
                   ),
                 ),
@@ -617,29 +482,11 @@ class _ProductsPageState extends State<ProductsPage> {
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
                       final produit = visibleProducts[index];
-
-                      final name = textValue(
-                        produit['produit_nom'],
-                        'Produit',
-                      );
-
-                      final price = priceValue(produit['prix']);
-
-                      final imageUrl = textValue(
-                        produit['image_url'],
-                        '',
-                      );
-
-                      final pharmacyName = textValue(
-                        produit['pharmacie_nom'],
-                        'Pharmacie',
-                      );
-
                       return _ProductGridCard(
-                        name: name,
-                        pharmacyName: pharmacyName,
-                        price: price,
-                        imageUrl: imageUrl,
+                        name: textValue(produit['produit_nom'], 'Produit'),
+                        pharmacyName: textValue(produit['pharmacie_nom'], 'Pharmacie'),
+                        price: priceValue(produit['prix']),
+                        imageUrl: textValue(produit['image_url_resolved'] ?? produit['image_url'], ''),
                         isAvailable: isAvailable(produit),
                         onTap: () => openProductDetails(produit),
                         onAddToCart: () => addToCart(produit),
@@ -662,12 +509,10 @@ class _ProductsPageState extends State<ProductsPage> {
   }
 }
 
-class _HomeLikeHeader extends StatelessWidget {
+class _Header extends StatelessWidget {
   final VoidCallback onCartTap;
 
-  const _HomeLikeHeader({
-    required this.onCartTap,
-  });
+  const _Header({required this.onCartTap});
 
   @override
   Widget build(BuildContext context) {
@@ -676,50 +521,23 @@ class _HomeLikeHeader extends StatelessWidget {
         Container(
           width: 48,
           height: 48,
-          decoration: BoxDecoration(
-            color: AppColors.lightGreen,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: const Icon(
-            Icons.local_pharmacy_rounded,
-            color: AppColors.primaryGreen,
-            size: 28,
-          ),
+          decoration: BoxDecoration(color: AppColors.lightGreen, borderRadius: BorderRadius.circular(16)),
+          child: const Icon(Icons.local_pharmacy_rounded, color: AppColors.primaryGreen, size: 28),
         ),
-
         const SizedBox(width: 12),
-
         const Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Dwak Hna',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.primaryGreen,
-                ),
-              ),
+              Text('Dwak Hna', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.primaryGreen)),
               SizedBox(height: 2),
-              Text(
-                'Produits santé disponibles',
-                style: TextStyle(
-                  color: AppColors.textGrey,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
-              ),
+              Text('Produits santé disponibles', style: TextStyle(color: AppColors.textGrey, fontWeight: FontWeight.w600, fontSize: 13)),
             ],
           ),
         ),
-
         IconButton.filled(
           onPressed: onCartTap,
-          style: IconButton.styleFrom(
-            backgroundColor: AppColors.lightGreen,
-            foregroundColor: AppColors.primaryGreen,
-          ),
+          style: IconButton.styleFrom(backgroundColor: AppColors.lightGreen, foregroundColor: AppColors.primaryGreen),
           icon: const Icon(Icons.shopping_cart_outlined),
         ),
       ],
@@ -754,26 +572,15 @@ class _FilterChipButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 10,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            border: outlined
-                ? Border.all(
-                    color: AppColors.primaryGreen.withOpacity(0.55),
-                  )
-                : null,
+            border: outlined ? Border.all(color: AppColors.primaryGreen.withOpacity(0.55)) : null,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                icon,
-                color: foreground,
-                size: 18,
-              ),
+              Icon(icon, color: foreground, size: 18),
               const SizedBox(width: 7),
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 115),
@@ -781,20 +588,12 @@ class _FilterChipButton extends StatelessWidget {
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: foreground,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13,
-                  ),
+                  style: TextStyle(color: foreground, fontWeight: FontWeight.w800, fontSize: 13),
                 ),
               ),
               if (!outlined) ...[
                 const SizedBox(width: 4),
-                Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  color: foreground,
-                  size: 18,
-                ),
+                Icon(Icons.keyboard_arrow_down_rounded, color: foreground, size: 18),
               ],
             ],
           ),
@@ -836,78 +635,15 @@ class _ProductGridCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Stack(
-                  children: [
-                    Center(
-                      child: _ProductImage(
-                        imageUrl: imageUrl,
-                        size: 105,
-                      ),
-                    ),
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: AppColors.lightGreen,
-                          borderRadius: BorderRadius.circular(99),
-                        ),
-                        child: const Icon(
-                          Icons.favorite_border_rounded,
-                          color: AppColors.primaryGreen,
-                          size: 18,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
+              Expanded(child: Center(child: _ProductImage(imageUrl: imageUrl, size: 105))),
               const SizedBox(height: 8),
-
-              Text(
-                name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 14,
-                  height: 1.2,
-                ),
-              ),
-
+              Text(name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, height: 1.2)),
               const SizedBox(height: 6),
-
-              Text(
-                pharmacyName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppColors.textGrey,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-
+              Text(pharmacyName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.textGrey, fontSize: 11, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
-
               Row(
                 children: [
-                  Expanded(
-                    child: Text(
-                      price,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.primaryGreen,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
+                  Expanded(child: Text(price, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.primaryGreen, fontSize: 14, fontWeight: FontWeight.w900))),
                   SizedBox(
                     width: 38,
                     height: 38,
@@ -937,95 +673,45 @@ class ProductDetailsPage extends StatelessWidget {
   final dynamic produit;
   final VoidCallback onAddToCart;
 
-  const ProductDetailsPage({
-    super.key,
-    required this.produit,
-    required this.onAddToCart,
-  });
+  const ProductDetailsPage({super.key, required this.produit, required this.onAddToCart});
 
   String textValue(dynamic value, String fallback) {
     if (value == null) return fallback;
-
     final text = value.toString().trim();
-
-    if (text.isEmpty || text == 'null') {
-      return fallback;
-    }
-
+    if (text.isEmpty || text == 'null') return fallback;
     return text;
   }
 
   double? doubleValue(dynamic value) {
     if (value == null) return null;
     if (value is num) return value.toDouble();
-
     return double.tryParse(value.toString());
   }
 
   String priceValue(dynamic value) {
     final price = doubleValue(value);
-
-    if (price == null) {
-      return 'Prix non défini';
-    }
-
+    if (price == null) return 'Prix non défini';
     return '${price.toStringAsFixed(2)} DA';
   }
 
-  bool boolValue(dynamic value) {
-    return value == 1 || value == true || value == '1' || value == 'true';
-  }
+  bool boolValue(dynamic value) => value == 1 || value == true || value == '1' || value == 'true';
 
   @override
   Widget build(BuildContext context) {
     final name = textValue(produit['produit_nom'], 'Produit');
-
-    final category = textValue(
-      produit['categories'] ?? produit['type_produit'],
-      'Catégorie non définie',
-    );
-
-    final description = textValue(
-      produit['description_perso'] ?? produit['produit_description'],
-      'Aucune description disponible.',
-    );
-
+    final category = textValue(produit['categories'] ?? produit['type_produit'], 'Catégorie non définie');
+    final description = textValue(produit['description_perso'] ?? produit['produit_description'], 'Aucune description disponible.');
     final price = priceValue(produit['prix']);
-
-    final imageUrl = textValue(produit['image_url'], '');
-
-    final pharmacyName = textValue(
-      produit['pharmacie_nom'],
-      'Pharmacie',
-    );
-
-    final pharmacyAddress = textValue(
-      produit['pharmacie_adresse'],
-      'Adresse non disponible',
-    );
-
-    final pharmacyPhone = textValue(
-      produit['pharmacie_telephone'],
-      'Téléphone non disponible',
-    );
-
+    final imageUrl = textValue(produit['image_url_resolved'] ?? produit['image_url'], '');
+    final pharmacyName = textValue(produit['pharmacie_nom'], 'Pharmacie');
+    final pharmacyAddress = textValue(produit['pharmacie_adresse'], 'Adresse non disponible');
+    final pharmacyPhone = textValue(produit['pharmacie_telephone'], 'Téléphone non disponible');
     final isAvailable = boolValue(produit['est_disponible']);
-    final isOpen = boolValue(produit['est_ouverte']);
-    final isDuty = boolValue(produit['est_de_garde']);
-
-    final pharmacyStatus = isDuty
-        ? 'Pharmacie de garde'
-        : isOpen
-            ? 'Pharmacie ouverte'
-            : 'Pharmacie fermée';
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text(
-          'Détails produit',
-          style: TextStyle(fontWeight: FontWeight.w900),
-        ),
+        title: const Text('Détails produit', style: TextStyle(fontWeight: FontWeight.w900)),
         backgroundColor: AppColors.background,
         elevation: 0,
       ),
@@ -1039,132 +725,42 @@ class ProductDetailsPage extends StatelessWidget {
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(28),
-                    ),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(28)),
                     child: Column(
                       children: [
-                        _ProductImage(
-                          imageUrl: imageUrl,
-                          size: 140,
-                        ),
-
+                        _ProductImage(imageUrl: imageUrl, size: 140),
                         const SizedBox(height: 18),
-
-                        Text(
-                          name,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-
+                        Text(name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
                         const SizedBox(height: 8),
-
-                        Text(
-                          category,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: AppColors.textGrey,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-
+                        Text(category, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textGrey, fontWeight: FontWeight.w600)),
                         const SizedBox(height: 14),
-
-                        Text(
-                          price,
-                          style: const TextStyle(
-                            color: AppColors.primaryGreen,
-                            fontSize: 24,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        _StatusChip(
-                          label: isAvailable ? 'Disponible' : 'Indisponible',
-                          icon: isAvailable
-                              ? Icons.check_circle_outline_rounded
-                              : Icons.cancel_outlined,
-                        ),
+                        Text(price, style: const TextStyle(color: AppColors.primaryGreen, fontSize: 24, fontWeight: FontWeight.w900)),
                       ],
                     ),
                   ),
-
                   const SizedBox(height: 16),
-
-                  _SectionCard(
-                    title: 'Description',
-                    icon: Icons.description_outlined,
-                    child: Text(
-                      description,
-                      style: const TextStyle(
-                        color: AppColors.textGrey,
-                        height: 1.45,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-
+                  _SectionCard(title: 'Description', icon: Icons.description_outlined, child: Text(description, style: const TextStyle(color: AppColors.textGrey, height: 1.45, fontWeight: FontWeight.w500))),
                   const SizedBox(height: 14),
-
                   _SectionCard(
                     title: 'Pharmacie',
                     icon: Icons.local_pharmacy_outlined,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          pharmacyName,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-
+                        Text(pharmacyName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
                         const SizedBox(height: 10),
-
-                        _DetailLine(
-                          icon: Icons.location_on_outlined,
-                          text: pharmacyAddress,
-                        ),
-
+                        _DetailLine(icon: Icons.location_on_outlined, text: pharmacyAddress),
                         const SizedBox(height: 8),
-
-                        _DetailLine(
-                          icon: Icons.phone_outlined,
-                          text: pharmacyPhone,
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        _StatusChip(
-                          label: pharmacyStatus,
-                          icon: Icons.access_time_rounded,
-                        ),
+                        _DetailLine(icon: Icons.phone_outlined, text: pharmacyPhone),
                       ],
                     ),
                   ),
                 ],
               ),
             ),
-
             Container(
               padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 12,
-                    offset: Offset(0, -4),
-                  ),
-                ],
-              ),
+              decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 12, offset: Offset(0, -4))]),
               child: SizedBox(
                 width: double.infinity,
                 height: 54,
@@ -1175,17 +771,10 @@ class ProductDetailsPage extends StatelessWidget {
                     foregroundColor: Colors.white,
                     disabledBackgroundColor: Colors.grey.shade300,
                     disabledForegroundColor: Colors.grey.shade600,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                   ),
                   icon: const Icon(Icons.add_shopping_cart_rounded),
-                  label: const Text(
-                    'Ajouter au panier',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
+                  label: const Text('Ajouter au panier', style: TextStyle(fontWeight: FontWeight.w900)),
                 ),
               ),
             ),
@@ -1200,16 +789,11 @@ class _ProductImage extends StatelessWidget {
   final String imageUrl;
   final double size;
 
-  const _ProductImage({
-    required this.imageUrl,
-    required this.size,
-  });
+  const _ProductImage({required this.imageUrl, required this.size});
 
   @override
   Widget build(BuildContext context) {
-    if (imageUrl.isEmpty) {
-      return _ImagePlaceholder(size: size);
-    }
+    if (imageUrl.isEmpty) return _ImagePlaceholder(size: size);
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(18),
@@ -1218,9 +802,7 @@ class _ProductImage extends StatelessWidget {
         width: size,
         height: size,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) {
-          return _ImagePlaceholder(size: size);
-        },
+        errorBuilder: (context, error, stackTrace) => _ImagePlaceholder(size: size),
       ),
     );
   }
@@ -1229,24 +811,15 @@ class _ProductImage extends StatelessWidget {
 class _ImagePlaceholder extends StatelessWidget {
   final double size;
 
-  const _ImagePlaceholder({
-    required this.size,
-  });
+  const _ImagePlaceholder({required this.size});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        color: AppColors.lightGreen,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Icon(
-        Icons.shopping_bag_outlined,
-        color: AppColors.primaryGreen,
-        size: size * 0.42,
-      ),
+      decoration: BoxDecoration(color: AppColors.lightGreen, borderRadius: BorderRadius.circular(18)),
+      child: Icon(Icons.shopping_bag_outlined, color: AppColors.primaryGreen, size: size * 0.42),
     );
   }
 }
@@ -1255,10 +828,7 @@ class _FilterOption {
   final String value;
   final String label;
 
-  const _FilterOption({
-    required this.value,
-    required this.label,
-  });
+  const _FilterOption({required this.value, required this.label});
 }
 
 class _FilterSheet extends StatelessWidget {
@@ -1266,63 +836,31 @@ class _FilterSheet extends StatelessWidget {
   final List<_FilterOption> options;
   final String selectedValue;
 
-  const _FilterSheet({
-    required this.title,
-    required this.options,
-    required this.selectedValue,
-  });
+  const _FilterSheet({required this.title, required this.options, required this.selectedValue});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       height: MediaQuery.of(context).size.height * 0.58,
       padding: const EdgeInsets.fromLTRB(18, 14, 18, 20),
-      decoration: const BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(28),
-        ),
-      ),
+      decoration: const BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       child: Column(
         children: [
-          Container(
-            width: 44,
-            height: 5,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(99),
-            ),
-          ),
-
+          Container(width: 44, height: 5, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(99))),
           const SizedBox(height: 18),
-
           Row(
             children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-              IconButton(
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.close_rounded),
-              ),
+              Expanded(child: Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900))),
+              IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close_rounded)),
             ],
           ),
-
           const SizedBox(height: 8),
-
           Expanded(
             child: ListView.builder(
               itemCount: options.length,
               itemBuilder: (context, index) {
                 final option = options[index];
                 final isSelected = option.value == selectedValue;
-
                 return Container(
                   margin: const EdgeInsets.only(bottom: 10),
                   child: Material(
@@ -1338,33 +876,11 @@ class _FilterSheet extends StatelessWidget {
                             Container(
                               width: 28,
                               height: 28,
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? AppColors.primaryGreen
-                                    : AppColors.lightGreen,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                isSelected
-                                    ? Icons.check_rounded
-                                    : Icons.circle_outlined,
-                                color: isSelected
-                                    ? Colors.white
-                                    : AppColors.primaryGreen,
-                                size: 18,
-                              ),
+                              decoration: BoxDecoration(color: isSelected ? AppColors.primaryGreen : AppColors.lightGreen, shape: BoxShape.circle),
+                              child: Icon(isSelected ? Icons.check_rounded : Icons.circle_outlined, color: isSelected ? Colors.white : AppColors.primaryGreen, size: 18),
                             ),
-
                             const SizedBox(width: 12),
-
-                            Expanded(
-                              child: Text(
-                                option.label,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
+                            Expanded(child: Text(option.label, style: const TextStyle(fontWeight: FontWeight.w800))),
                           ],
                         ),
                       ),
@@ -1384,10 +900,7 @@ class _CategoryFilterSheet extends StatefulWidget {
   final List<String> categories;
   final Set<String> selectedCategories;
 
-  const _CategoryFilterSheet({
-    required this.categories,
-    required this.selectedCategories,
-  });
+  const _CategoryFilterSheet({required this.categories, required this.selectedCategories});
 
   @override
   State<_CategoryFilterSheet> createState() => _CategoryFilterSheetState();
@@ -1417,145 +930,63 @@ class _CategoryFilterSheetState extends State<_CategoryFilterSheet> {
     return Container(
       height: MediaQuery.of(context).size.height * 0.70,
       padding: const EdgeInsets.fromLTRB(18, 14, 18, 20),
-      decoration: const BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(28),
-        ),
-      ),
+      decoration: const BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       child: Column(
         children: [
-          Container(
-            width: 44,
-            height: 5,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(99),
-            ),
-          ),
-
+          Container(width: 44, height: 5, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(99))),
           const SizedBox(height: 18),
-
           Row(
             children: [
-              const Expanded(
-                child: Text(
-                  'Choisir les catégories',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    tempSelected.clear();
-                  });
-                },
-                child: const Text('Tout effacer'),
-              ),
+              const Expanded(child: Text('Choisir les catégories', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900))),
+              TextButton(onPressed: () => setState(() => tempSelected.clear()), child: const Text('Tout effacer')),
             ],
           ),
-
           const SizedBox(height: 8),
-
-          if (widget.categories.isEmpty)
-            const Expanded(
-              child: Center(
-                child: Text(
-                  'Aucune catégorie disponible.',
-                  style: TextStyle(
-                    color: AppColors.textGrey,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            )
-          else
-            Expanded(
-              child: ListView.builder(
-                itemCount: widget.categories.length,
-                itemBuilder: (context, index) {
-                  final category = widget.categories[index];
-                  final isSelected = tempSelected.contains(category);
-
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    child: Material(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(18),
-                      child: InkWell(
-                        onTap: () => toggleCategory(category),
-                        borderRadius: BorderRadius.circular(18),
-                        child: Padding(
-                          padding: const EdgeInsets.all(15),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 30,
-                                height: 30,
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? AppColors.primaryGreen
-                                      : AppColors.lightGreen,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Icon(
-                                  isSelected
-                                      ? Icons.check_rounded
-                                      : Icons.add_rounded,
-                                  color: isSelected
-                                      ? Colors.white
-                                      : AppColors.primaryGreen,
-                                  size: 20,
-                                ),
-                              ),
-
-                              const SizedBox(width: 12),
-
-                              Expanded(
-                                child: Text(
-                                  category,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w800,
+          Expanded(
+            child: widget.categories.isEmpty
+                ? const Center(child: Text('Aucune catégorie disponible.', style: TextStyle(color: AppColors.textGrey, fontWeight: FontWeight.w600)))
+                : ListView.builder(
+                    itemCount: widget.categories.length,
+                    itemBuilder: (context, index) {
+                      final category = widget.categories[index];
+                      final isSelected = tempSelected.contains(category);
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        child: Material(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(18),
+                          child: InkWell(
+                            onTap: () => toggleCategory(category),
+                            borderRadius: BorderRadius.circular(18),
+                            child: Padding(
+                              padding: const EdgeInsets.all(15),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 30,
+                                    height: 30,
+                                    decoration: BoxDecoration(color: isSelected ? AppColors.primaryGreen : AppColors.lightGreen, borderRadius: BorderRadius.circular(10)),
+                                    child: Icon(isSelected ? Icons.check_rounded : Icons.add_rounded, color: isSelected ? Colors.white : AppColors.primaryGreen, size: 20),
                                   ),
-                                ),
+                                  const SizedBox(width: 12),
+                                  Expanded(child: Text(category, style: const TextStyle(fontWeight: FontWeight.w800))),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-
+                      );
+                    },
+                  ),
+          ),
           const SizedBox(height: 12),
-
           SizedBox(
             width: double.infinity,
             height: 52,
             child: ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop(tempSelected);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryGreen,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                ),
-              ),
-              child: Text(
-                tempSelected.isEmpty
-                    ? 'Afficher toutes les catégories'
-                    : 'Appliquer (${tempSelected.length})',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
+              onPressed: () => Navigator.of(context).pop(tempSelected),
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryGreen, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
+              child: Text(tempSelected.isEmpty ? 'Afficher toutes les catégories' : 'Appliquer (${tempSelected.length})', style: const TextStyle(fontWeight: FontWeight.w900)),
             ),
           ),
         ],
@@ -1569,40 +1000,18 @@ class _SectionCard extends StatelessWidget {
   final IconData icon;
   final Widget child;
 
-  const _SectionCard({
-    required this.title,
-    required this.icon,
-    required this.child,
-  });
+  const _SectionCard({required this.title, required this.icon, required this.child});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-      ),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(
-                icon,
-                color: AppColors.primaryGreen,
-              ),
-              const SizedBox(width: 10),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
+          Row(children: [Icon(icon, color: AppColors.primaryGreen), const SizedBox(width: 10), Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900))]),
           const SizedBox(height: 14),
           child,
         ],
@@ -1615,74 +1024,16 @@ class _DetailLine extends StatelessWidget {
   final IconData icon;
   final String text;
 
-  const _DetailLine({
-    required this.icon,
-    required this.text,
-  });
+  const _DetailLine({required this.icon, required this.text});
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(
-          icon,
-          color: AppColors.primaryGreen,
-          size: 20,
-        ),
+        Icon(icon, color: AppColors.primaryGreen, size: 20),
         const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(
-              color: AppColors.textGrey,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
+        Expanded(child: Text(text, style: const TextStyle(color: AppColors.textGrey, fontWeight: FontWeight.w600))),
       ],
-    );
-  }
-}
-
-class _StatusChip extends StatelessWidget {
-  final String label;
-  final IconData icon;
-
-  const _StatusChip({
-    required this.label,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 7,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.lightGreen,
-        borderRadius: BorderRadius.circular(99),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            color: AppColors.primaryGreen,
-            size: 16,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.primaryGreen,
-              fontWeight: FontWeight.w800,
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -1693,45 +1044,21 @@ class _InfoCard extends StatelessWidget {
   final String message;
   final Color color;
 
-  const _InfoCard({
-    required this.icon,
-    required this.title,
-    required this.message,
-    required this.color,
-  });
+  const _InfoCard({required this.icon, required this.title, required this.message, required this.color});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-      ),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
       child: Column(
         children: [
-          Icon(
-            icon,
-            color: color,
-            size: 48,
-          ),
+          Icon(icon, color: color, size: 48),
           const SizedBox(height: 14),
-          Text(
-            title,
-            style: const TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: 16,
-            ),
-          ),
+          Text(title, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
           const SizedBox(height: 6),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: AppColors.textGrey,
-            ),
-          ),
+          Text(message, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textGrey)),
         ],
       ),
     );

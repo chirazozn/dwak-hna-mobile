@@ -1,51 +1,34 @@
-import 'dart:convert';
-
-import 'package:http/http.dart' as http;
+import 'api_client.dart';
 
 class ProduitService {
-  static const String baseUrl = 'https://dwak-hna-mobile.onrender.com';
+  final ApiClient _api = ApiClient();
 
   Future<List<dynamic>> getProduits({
     String search = '',
   }) async {
-    final uri = Uri.parse('$baseUrl/api/produits/').replace(
-      queryParameters: {
-        if (search.trim().isNotEmpty) 'search': search.trim(),
-      },
-    );
+    final encodedSearch = Uri.encodeComponent(search.trim());
+    final result = await _api.get('/produits/?search=$encodedSearch');
 
-    final response = await http.get(uri);
-
-    final body = jsonDecode(response.body);
-
-    if (response.statusCode == 200 && body['success'] == true) {
-      return body['data'] ?? [];
+    if (result['success'] == true) {
+      return result['data'] ?? [];
     }
 
-    throw Exception(body['message'] ?? 'Erreur chargement produits');
+    return [];
   }
 
   Future<List<dynamic>> getProduitsByPharmacie({
     required int pharmacieId,
     String search = '',
   }) async {
-    final uri = Uri.parse('$baseUrl/api/produits/pharmacie/$pharmacieId')
-        .replace(
-      queryParameters: {
-        if (search.trim().isNotEmpty) 'search': search.trim(),
-      },
+    final encodedSearch = Uri.encodeComponent(search.trim());
+    final result = await _api.get(
+      '/produits/pharmacie/$pharmacieId?search=$encodedSearch',
     );
 
-    final response = await http.get(uri);
-
-    final body = jsonDecode(response.body);
-
-    if (response.statusCode == 200 && body['success'] == true) {
-      return body['data'] ?? [];
+    if (result['success'] == true) {
+      return result['data'] ?? [];
     }
 
-    throw Exception(
-      body['message'] ?? 'Erreur chargement produits pharmacie',
-    );
+    return [];
   }
 }

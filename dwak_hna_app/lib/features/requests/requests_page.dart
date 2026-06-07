@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/services/demande_service.dart';
 import 'demande_details_page.dart';
-
+import '../medicines/add_medicines_page.dart';
+import '../prescriptions/prescription_scan_page.dart';
 class RequestsPage extends StatefulWidget {
   const RequestsPage({super.key});
 
@@ -24,7 +25,13 @@ class _RequestsPageState extends State<RequestsPage> {
 
   Timer? demandesRefreshTimer;
   DateTime? lastRefreshTime;
+void openCreatePage(Widget page) async {
+  await Navigator.of(context).push(
+    MaterialPageRoute(builder: (_) => page),
+  );
 
+  refreshDemandesSilently();
+}
   @override
   void initState() {
     super.initState();
@@ -309,7 +316,29 @@ Future<void> refreshDemandesSilently() async {
             ],
 
             const SizedBox(height: 18),
+             Row(
+               children: [
+                 Expanded(
+                   child: _CreateRequestButton(
+                     icon: Icons.edit_note_rounded,
+                     title: 'Saisie manuelle',
+                     subtitle: 'Ajouter médicaments',
+                     onTap: () => openCreatePage(const AddMedicinesPage()),
+                   ),
+                 ),
+                 const SizedBox(width: 12),
+                 Expanded(
+                   child: _CreateRequestButton(
+                     icon: Icons.document_scanner_outlined,
+                     title: 'Scanner ordonnance',
+                     subtitle: 'Photo ordonnance',
+                     onTap: () => openCreatePage(const PrescriptionScanPage()),
+                   ),
+                 ),
+               ],
+             ),
 
+             const SizedBox(height: 18),
             if (isLoading)
               const Padding(
                 padding: EdgeInsets.only(top: 90),
@@ -365,7 +394,69 @@ Future<void> refreshDemandesSilently() async {
     );
   }
 }
+class _CreateRequestButton extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
 
+  const _CreateRequestButton({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(22),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(13),
+                decoration: BoxDecoration(
+                  color: AppColors.lightGreen,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(
+                  icon,
+                  color: AppColors.primaryGreen,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.textGrey,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 class _DemandeCard extends StatelessWidget {
   final dynamic demande;
   final String typeLabel;
