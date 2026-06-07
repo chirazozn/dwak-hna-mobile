@@ -1,11 +1,13 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../data/services/panier_service.dart';
+import '../../data/services/commande_service.dart';
 import '../../data/services/produit_service.dart';
 import '../cart/cart_page.dart';
+import '../orders/orders_page.dart';
 
 class ProductsPage extends StatefulWidget {
   const ProductsPage({super.key});
@@ -17,9 +19,14 @@ class ProductsPage extends StatefulWidget {
 class _ProductsPageState extends State<ProductsPage> {
   final ProduitService produitService = ProduitService();
   final PanierService panierService = PanierService();
+  final CommandeService commandeService = CommandeService();
   final TextEditingController searchController = TextEditingController();
 
+  int panierCount = 0;
+  int commandesCount = 0;
+
   Timer? searchDebounce;
+  Timer? countsTimer;
 
   bool isLoading = true;
   String? error;
@@ -29,20 +36,54 @@ class _ProductsPageState extends State<ProductsPage> {
   String selectedPrice = 'all';
   String selectedSort = 'default';
   final Set<String> selectedCategories = {};
-
   @override
   void initState() {
     super.initState();
+
     loadProduits();
+    loadCounts();
+
+    countsTimer = Timer.periodic(
+      const Duration(seconds: 2),
+      (_) => loadCounts(),
+    );
 
     searchController.addListener(() {
       searchDebounce?.cancel();
-      searchDebounce = Timer(const Duration(milliseconds: 450), loadProduits);
+      searchDebounce = Timer(
+        const Duration(milliseconds: 450),
+        loadProduits,
+      );
     });
+  }
+
+  Future<void> loadCounts() async {
+    try {
+      final panier = await panierService.getPanier();
+      final activeCommandes = await commandeService.getActiveCommandesCount();
+
+      if (!mounted) return;
+
+      int count = 0;
+
+      if (panier != null && panier['lignes'] != null) {
+        for (final ligne in panier['lignes']) {
+          count += int.tryParse(ligne['quantite'].toString()) ?? 0;
+        }
+      }
+
+      setState(() {
+        panierCount = count;
+        commandesCount = activeCommandes;
+      });
+    } catch (_) {
+      // Silent refresh: do not block the products page if counters fail.
+    }
   }
 
   @override
   void dispose() {
+    countsTimer?.cancel();
     searchDebounce?.cancel();
     searchController.dispose();
     super.dispose();
@@ -251,6 +292,8 @@ class _ProductsPageState extends State<ProductsPage> {
 
       if (!mounted) return;
 
+      await loadCounts();
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('$name ajouté au panier'),
@@ -262,16 +305,29 @@ class _ProductsPageState extends State<ProductsPage> {
       );
     } catch (e) {
       if (!mounted) return;
+
+      await loadCounts();
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
       );
     }
   }
 
-  void openCart() {
-    Navigator.of(context).push(
+  void openCart() async {
+    await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const CartPage()),
     );
+
+    loadCounts();
+  }
+
+  void openOrders() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const OrdersPage()),
+    );
+
+    loadCounts();
   }
 
   void openProductDetails(dynamic produit) {
@@ -378,8 +434,12 @@ class _ProductsPageState extends State<ProductsPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _Header(onCartTap: openCart),
-                    const SizedBox(height: 18),
+_Header(
+                      onCartTap: openCart,
+                      onOrdersTap: openOrders,
+                      panierCount: panierCount,
+                      commandesCount: commandesCount,
+                    ),                    const SizedBox(height: 18),
                     TextField(
                       controller: searchController,
                       decoration: InputDecoration(
@@ -511,8 +571,16 @@ class _ProductsPageState extends State<ProductsPage> {
 
 class _Header extends StatelessWidget {
   final VoidCallback onCartTap;
+  final VoidCallback onOrdersTap;
+  final int panierCount;
+  final int commandesCount;
 
-  const _Header({required this.onCartTap});
+  const _Header({
+    required this.onCartTap,
+    required this.onOrdersTap,
+    required this.panierCount,
+    required this.commandesCount,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -521,30 +589,89 @@ class _Header extends StatelessWidget {
         Container(
           width: 48,
           height: 48,
-          decoration: BoxDecoration(color: AppColors.lightGreen, borderRadius: BorderRadius.circular(16)),
-          child: const Icon(Icons.local_pharmacy_rounded, color: AppColors.primaryGreen, size: 28),
+          decoration: BoxDecoration(
+            color: AppColors.lightGreen,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const Icon(
+            Icons.local_pharmacy_rounded,
+            color: AppColors.primaryGreen,
+            size: 28,
+          ),
         ),
+
         const SizedBox(width: 12),
+
         const Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Dwak Hna', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.primaryGreen)),
+              Text(
+                'Dwak Hna',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.primaryGreen,
+                ),
+              ),
               SizedBox(height: 2),
-              Text('Produits santé disponibles', style: TextStyle(color: AppColors.textGrey, fontWeight: FontWeight.w600, fontSize: 13)),
+              Text(
+                'Produits santé disponibles',
+                style: TextStyle(
+                  color: AppColors.textGrey,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
             ],
           ),
         ),
-        IconButton.filled(
-          onPressed: onCartTap,
-          style: IconButton.styleFrom(backgroundColor: AppColors.lightGreen, foregroundColor: AppColors.primaryGreen),
-          icon: const Icon(Icons.shopping_cart_outlined),
+
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            IconButton.filled(
+              onPressed: onOrdersTap,
+              style: IconButton.styleFrom(
+                backgroundColor: AppColors.lightGreen,
+                foregroundColor: AppColors.primaryGreen,
+              ),
+              icon: const Icon(Icons.receipt_long_rounded),
+            ),
+            if (commandesCount > 0)
+              Positioned(
+                right: -2,
+                top: -2,
+                child: _CountBadge(count: commandesCount),
+              ),
+          ],
+        ),
+
+        const SizedBox(width: 8),
+
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            IconButton.filled(
+              onPressed: onCartTap,
+              style: IconButton.styleFrom(
+                backgroundColor: AppColors.lightGreen,
+                foregroundColor: AppColors.primaryGreen,
+              ),
+              icon: const Icon(Icons.shopping_cart_outlined),
+            ),
+            if (panierCount > 0)
+              Positioned(
+                right: -2,
+                top: -2,
+                child: _CountBadge(count: panierCount),
+              ),
+          ],
         ),
       ],
     );
   }
 }
-
 class _FilterChipButton extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -1037,7 +1164,35 @@ class _DetailLine extends StatelessWidget {
     );
   }
 }
+class _CountBadge extends StatelessWidget {
+  final int count;
 
+  const _CountBadge({
+    required this.count,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 6,
+        vertical: 2,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.red,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        count > 99 ? '99+' : '$count',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
 class _InfoCard extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -1064,3 +1219,4 @@ class _InfoCard extends StatelessWidget {
     );
   }
 }
+

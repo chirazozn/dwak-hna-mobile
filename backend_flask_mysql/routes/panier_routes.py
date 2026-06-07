@@ -583,6 +583,79 @@ def valider_panier():
         conn.close()
 
 
+@panier_bp.get("/count")
+@auth_patient
+def panier_count():
+    patient_id = request.patient["patient_id"]
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        cursor.execute(
+            """
+            SELECT
+                COALESCE(SUM(pl.quantite), 0) AS count
+            FROM paniers pn
+            JOIN panier_lignes pl
+                ON pl.panier_id = pn.panier_id
+            WHERE pn.patient_id = %s
+            AND pn.statut = 'brouillon'
+            """,
+            (patient_id,),
+        )
+
+        row = cursor.fetchone() or {"count": 0}
+
+        return jsonify({
+            "success": True,
+            "count": int(row["count"] or 0)
+        })
+
+    except Exception as e:
+        print("PANIER COUNT ERROR:", e)
+        return jsonify({"success": False, "message": "Erreur serveur"}), 500
+
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@panier_bp.get("/commandes/count")
+@auth_patient
+def commandes_count():
+    patient_id = request.patient["patient_id"]
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        cursor.execute(
+            """
+            SELECT COUNT(*) AS count
+            FROM commandes
+            WHERE patient_id = %s
+            AND statut IN ('en_attente', 'acceptee')
+            """,
+            (patient_id,),
+        )
+
+        row = cursor.fetchone() or {"count": 0}
+
+        return jsonify({
+            "success": True,
+            "count": int(row["count"] or 0)
+        })
+
+    except Exception as e:
+        print("COMMANDES COUNT ERROR:", e)
+        return jsonify({"success": False, "message": "Erreur serveur"}), 500
+
+    finally:
+        cursor.close()
+        conn.close()
+
+
 @panier_bp.get("/historique")
 @auth_patient
 def historique_commandes():
