@@ -655,7 +655,6 @@ def commandes_count():
         cursor.close()
         conn.close()
 
-
 @panier_bp.get("/historique")
 @auth_patient
 def historique_commandes():
@@ -687,9 +686,38 @@ def historique_commandes():
             """,
             (patient_id,),
         )
-        rows = cursor.fetchall()
 
-        return jsonify({"success": True, "data": clean_rows(rows)})
+        commandes = clean_rows(cursor.fetchall())
+
+        for commande in commandes:
+            cursor.execute(
+                """
+                SELECT
+                    cl.commande_ligne_id,
+                    cl.commande_id,
+                    cl.pharmacie_produit_id,
+                    cl.admin_produit_id,
+                    cl.nom_produit,
+                    cl.prix_unitaire,
+                    cl.quantite,
+                    cl.sous_total,
+                    ap.image_url,
+                    ap.type_produit
+                FROM commande_lignes cl
+                LEFT JOIN admin_produits ap
+                    ON ap.admin_produit_id = cl.admin_produit_id
+                WHERE cl.commande_id = %s
+                ORDER BY cl.commande_ligne_id ASC
+                """,
+                (commande["commande_id"],),
+            )
+
+            commande["lignes"] = clean_rows(cursor.fetchall())
+
+        return jsonify({
+            "success": True,
+            "data": commandes
+        })
 
     except Exception as e:
         print("HISTORIQUE COMMANDES ERROR:", e)

@@ -11,6 +11,174 @@ class OrdersPage extends StatefulWidget {
 }
 
 class _OrdersPageState extends State<OrdersPage> {
+
+void showOrderDetails(dynamic commande) {
+  final lignes = commande['lignes'] ?? [];
+
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) {
+      return Container(
+        padding: const EdgeInsets.all(18),
+        decoration: const BoxDecoration(
+          color: AppColors.background,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 18),
+
+              Text(
+                'Commande #${commande['commande_id']}',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+
+              const SizedBox(height: 6),
+
+              Text(
+                commande['pharmacie_nom']?.toString() ?? 'Pharmacie',
+                style: const TextStyle(
+                  color: AppColors.textGrey,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+
+              const SizedBox(height: 18),
+
+              if (lignes.isEmpty)
+                const Text(
+                  'Aucun produit dans cette commande.',
+                  style: TextStyle(color: AppColors.textGrey),
+                )
+              else
+                ...lignes.map<Widget>((ligne) {
+                  final nom = ligne['nom_produit']?.toString() ?? 'Produit';
+                  final quantite = ligne['quantite']?.toString() ?? '1';
+                  final prix = double.tryParse(
+                        ligne['prix_unitaire']?.toString() ?? '',
+                      ) ??
+                      0;
+                  final sousTotal = double.tryParse(
+                        ligne['sous_total']?.toString() ?? '',
+                      ) ??
+                      0;
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: AppColors.lightGreen,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(
+                            Icons.shopping_bag_outlined,
+                            color: AppColors.primaryGreen,
+                          ),
+                        ),
+
+                        const SizedBox(width: 12),
+
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                nom,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Quantité : $quantite × ${prix.toStringAsFixed(2)} DA',
+                                style: const TextStyle(
+                                  color: AppColors.textGrey,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        Text(
+                          '${sousTotal.toStringAsFixed(2)} DA',
+                          style: const TextStyle(
+                            color: AppColors.primaryGreen,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+
+              const SizedBox(height: 12),
+
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryGreen,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Total',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${double.tryParse(commande['total']?.toString() ?? '0')?.toStringAsFixed(2)} DA',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 17,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
   final CommandeService commandeService = CommandeService();
 
   bool isLoading = true;
@@ -219,7 +387,13 @@ class _OrdersPageState extends State<OrdersPage> {
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 14),
+                    TextButton.icon(
+                      onPressed: () => showOrderDetails(commande),
+                      icon: const Icon(Icons.visibility_outlined),
+                      label: const Text('Voir détails'),
+                    ),
+
+                    const SizedBox(height: 14),
                                   Row(
                                     children: [
                                       const Expanded(
